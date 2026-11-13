@@ -1,0 +1,61 @@
+@page "/treino/aparelho/{Id:int}"
+@inject ApiClient Api
+
+<PageTitle>extrato · evolução</PageTitle>
+
+@if (_ev == null)
+{
+    <p class="suave">@(_erro ?? "Carregando…")</p>
+}
+else
+{
+    <div class="topo">
+        <div>
+            <h1>@_ev.Aparelho.Nome</h1>
+            <p class="subtitulo">@_ev.Aparelho.Exercicio · @_ev.Aparelho.GrupoMuscular · @_ev.Aparelho.Academia</p>
+        </div>
+        <a class="btn" href="treino">Voltar</a>
+    </div>
+
+    @if (_ev.Estagnado) { <div class="aviso">Estagnação: 3 sessões sem subir o 1RM estimado nem as repetições na mesma carga.</div> }
+    @if (_ev.SugestaoCargaKg is { } s) { <div class="ok">Dupla progressão: bateu o topo da faixa em todas as séries. Próxima carga sugerida: <strong>@s.ToString("0.#") kg</strong>.</div> }
+
+    <div class="grade-4">
+        <div class="cartao"><div class="suave pequeno">Recorde (1RM est.)</div><div class="saldo-grande numero" style="font-size:1.8rem">@_ev.RecordePessoal1Rm.ToString("0.#")<span class="unid"> kg</span></div></div>
+        <div class="cartao"><div class="suave pequeno">Sessões</div><div class="saldo-grande numero" style="font-size:1.8rem">@_ev.Sessoes.Count</div></div>
+    </div>
+
+    <section class="cartao">
+        <h2>Histórico</h2>
+        <div class="tabela-rolagem">
+            <table>
+                <thead><tr><th>Data</th><th>Carga máx</th><th>Reps máx</th><th>1RM est. (Epley)</th><th>Volume</th></tr></thead>
+                <tbody>
+                    @foreach (var p in _ev.Sessoes.AsEnumerable().Reverse())
+                    {
+                        <tr>
+                            <td>@p.DataHora.ToString("dd/MM/yy")</td>
+                            <td class="numero">@p.CargaMax.ToString("0.#") kg</td>
+                            <td class="numero">@p.RepsMax</td>
+                            <td class="numero">@p.Melhor1Rm.ToString("0.#") @(p.Melhor1Rm == _ev.RecordePessoal1Rm ? "★" : "")</td>
+                            <td class="numero">@p.Volume.ToString("N0")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="suave pequeno">1RM estimado = carga × (1 + reps/30), confiável até ~12 repetições.</p>
+    </section>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private EvolucaoAparelhoDto? _ev;
+    private string? _erro;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try { _ev = await Api.EvolucaoAsync(Id); }
+        catch (Exception ex) { _erro = ex.Message; }
+    }
+}

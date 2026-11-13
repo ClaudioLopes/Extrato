@@ -1,0 +1,41 @@
+@* Gráfico SVG simples: pontos de peso (azul/proteína) e média móvel (verde/saldo). *@
+@if (_n > 0)
+{
+    <svg class="grafico" viewBox="0 0 @L @A" role="img" aria-label="Gráfico de peso">
+        <text x="0" y="12">@_max.ToString("0.0") kg</text>
+        <text x="0" y="@(A - 22)">@_min.ToString("0.0") kg</text>
+        <line x1="@M" y1="@(A - 18)" x2="@L" y2="@(A - 18)" stroke="currentColor" stroke-opacity=".15" />
+        <polyline fill="none" stroke="#22C55E" stroke-width="2.5" stroke-linejoin="round" points="@_linhaMedia" />
+        @foreach (var (x, y) in _pontos)
+        {
+            <circle cx="@F(x)" cy="@F(y)" r="3" fill="#3B82F6" />
+        }
+        <text x="@M" y="@A">@Pontos[0].Data.ToString("dd/MM")</text>
+        <text x="@(L - 32)" y="@A">@Pontos[^1].Data.ToString("dd/MM")</text>
+    </svg>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<PontoPesoDto> Pontos { get; set; } = [];
+
+    private const int L = 560, A = 200, M = 46;
+    private int _n;
+    private decimal _min, _max;
+    private string _linhaMedia = "";
+    private List<(double, double)> _pontos = [];
+
+    protected override void OnParametersSet()
+    {
+        _n = Pontos.Count;
+        if (_n == 0) return;
+        var valores = Pontos.SelectMany(p => new[] { p.PesoKg, p.MediaMovel7d }).Where(v => v.HasValue).Select(v => v!.Value).ToList();
+        _min = valores.Min() - 0.3m;
+        _max = valores.Max() + 0.3m;
+        double X(int i) => M + (L - M - 8) * (_n == 1 ? 0.5 : (double)i / (_n - 1));
+        double Y(decimal v) => 8 + (A - 34) * (double)((_max - v) / (_max - _min));
+        _linhaMedia = string.Join(" ", Pontos.Select((p, i) => p.MediaMovel7d is { } m ? $"{F(X(i))},{F(Y(m))}" : null).Where(s => s != null));
+        _pontos = Pontos.Select((p, i) => (p, i)).Where(t => t.p.PesoKg.HasValue).Select(t => (X(t.i), Y(t.p.PesoKg!.Value))).ToList();
+    }
+
+    private static string F(double v) => v.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+}

@@ -1,0 +1,154 @@
+﻿@page "/"
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>extrato · painel</PageTitle>
+
+<div class="topo">
+    <div>
+        <h1>Saldo do dia</h1>
+        <p class="subtitulo">@_data.ToString("dddd, dd 'de' MMMM", Cultura)</p>
+    </div>
+    <div class="linha">
+        <button class="btn mini" @onclick="() => Mudar(-1)">‹ Anterior</button>
+        <button class="btn mini" @onclick="() => Mudar(0)" disabled="@(_data == Hoje)">Hoje</button>
+        <button class="btn mini" @onclick="() => Mudar(1)" disabled="@(_data >= Hoje)">Próximo ›</button>
+    </div>
+</div>
+
+@if (_erro != null)
+{
+    <div class="erro">@_erro</div>
+    @if (_semMeta) { <a class="btn primario" href="ajustes">Configurar perfil e meta</a> }
+}
+else if (_painel == null)
+{
+    <p class="suave">Carregando…</p>
+}
+else
+{
+    @foreach (var a in _painel.Alertas) { <div class="aviso">@a</div> }
+
+    <div class="grade">
+        <section class="cartao">
+            <div class="suave pequeno">Restante hoje</div>
+            <div class="saldo-grande numero @(_painel.Restante.Kcal < 0 ? "negativo" : "")">
+                @_painel.Restante.Kcal.ToString("0") <span class="unid">kcal</span>
+            </div>
+            <p class="suave pequeno">Meta @_painel.Meta.Kcal.ToString("0") · consumido @_painel.Consumido.Kcal.ToString("0") kcal</p>
+            <BarraMacro Nome="Calorias" Classe="c-kcal" Unidade="kcal" Meta="_painel.Meta.Kcal" Consumido="_painel.Consumido.Kcal" />
+            <BarraMacro Nome="Proteína" Classe="c-prot" Meta="_painel.Meta.ProteinaG" Consumido="_painel.Consumido.ProteinaG" />
+            <BarraMacro Nome="Carboidrato" Classe="c-carb" Meta="_painel.Meta.CarboG" Consumido="_painel.Consumido.CarboG" />
+            <BarraMacro Nome="Gordura" Classe="c-gord" Meta="_painel.Meta.GorduraG" Consumido="_painel.Consumido.GorduraG" />
+        </section>
+
+        <section class="cartao">
+            <h2>Refeições</h2>
+            @foreach (var r in _painel.Refeicoes)
+            {
+                <div class="refeicao @(r.Registrada ? "feita" : "")" style="margin-bottom:14px">
+                    <div class="linha entre">
+                        <strong>@r.Tipo.Nome()</strong>
+                        @if (r.Registrada)
+                        {
+                            <span class="suave pequeno numero">@r.Consumido.Kcal.ToString("0") kcal · P @r.Consumido.ProteinaG.ToString("0")g</span>
+                        }
+                        else
+                        {
+                            <a class="btn mini" href="@($"registrar?tipo={r.Tipo}")">Registrar</a>
+                        }
+                    </div>
+                    @if (!r.Registrada)
+                    {
+                        <div class="suave pequeno numero">
+                            Alvo @r.Alvo.Kcal.ToString("0") kcal · P @r.Alvo.ProteinaG.ToString("0") · C @r.Alvo.CarboG.ToString("0") · G @r.Alvo.GorduraG.ToString("0")
+                            @if (r.Alvo.Kcal != r.AlvoOriginal.Kcal) { <span>(era @r.AlvoOriginal.Kcal.ToString("0"))</span> }
+                            @if (r.NoPiso) { <span class="etiqueta baixa">piso</span> }
+                        </div>
+                        @if (r.Sugestoes.Count > 0 && _data == Hoje)
+                        {
+                            <div class="chips">
+                                @foreach (var s in r.Sugestoes)
+                                {
+                                    <button class="btn mini" title="Registrar este favorito" disabled="@_ocupado" @onclick="() => RegistrarFavorito(s.FavoritoId, r.Tipo)">
+                                        ★ @s.Nome · @s.Total.Kcal.ToString("0") kcal
+                                    </button>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            }
+        </section>
+    </div>
+
+    <section class="cartao">
+        <div class="linha entre"><h2>Lançamentos</h2><a class="btn mini primario" href="registrar">＋ Nova refeição</a></div>
+        @if (_painel.Lancamentos.Count == 0)
+        {
+            <p class="suave">Nenhuma refeição registrada neste dia.</p>
+        }
+        @foreach (var l in _painel.Lancamentos)
+        {
+            <div class="lancamento">
+                <div class="cresce">
+                    <div><strong>@l.Tipo.Nome()</strong> <span class="suave pequeno">@l.DataHora.ToString("HH:mm") · @Origem(l.Origem)</span></div>
+                    <div class="suave pequeno">@string.Join(", ", l.Itens.Select(i => $"{i.Alimento} {i.Gramas:0} g"))</div>
+                </div>
+                <div style="text-align:right">
+                    <div class="numero forte">−@l.Total.Kcal.ToString("0") kcal</div>
+                    <div class="suave pequeno numero">P @l.Total.ProteinaG.ToString("0") · C @l.Total.CarboG.ToString("0") · G @l.Total.GorduraG.ToString("0")</div>
+                    <button class="btn mini perigo" disabled="@_ocupado" @onclick="() => Remover(l.Id)">remover</button>
+                </div>
+            </div>
+        }
+    </section>
+}
+
+@code {
+    private static readonly System.Globalization.CultureInfo Cultura = new("pt-BR");
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Now);
+    private DateOnly _data = Hoje;
+    private PainelDiaDto? _painel;
+    private string? _erro;
+    private bool _semMeta, _ocupado;
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        _erro = null;
+        try { _painel = await Api.PainelAsync(_data); }
+        catch (ApiException ex) { _erro = ex.Message; _semMeta = ex.Message.Contains("meta", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("Perfil"); }
+    }
+
+    private async Task Mudar(int dias)
+    {
+        _data = dias == 0 ? Hoje : _data.AddDays(dias);
+        _painel = null;
+        await Carregar();
+    }
+
+    private async Task RegistrarFavorito(int id, TipoRefeicao tipo)
+    {
+        _ocupado = true;
+        try { await Api.RegistrarFavoritoAsync(id, tipo); await Carregar(); }
+        catch (ApiException ex) { _erro = ex.Message; }
+        finally { _ocupado = false; }
+    }
+
+    private async Task Remover(int id)
+    {
+        _ocupado = true;
+        try { await Api.RemoverRefeicaoAsync(id); await Carregar(); }
+        catch (ApiException ex) { _erro = ex.Message; }
+        finally { _ocupado = false; }
+    }
+
+    private static string Origem(OrigemRefeicao o) => o switch
+    {
+        OrigemRefeicao.Foto => "foto",
+        OrigemRefeicao.Favorito => "favorito",
+        _ => "manual"
+    };
+}

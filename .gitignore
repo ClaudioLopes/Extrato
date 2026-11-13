@@ -1,0 +1,24 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+TestResults/
+*.trx
+coverage*.xml
+publish/
+
+## Segredos locais
+appsettings.*.local.json
+*.env
+.env
+
+## Documento de especificação original (contém dados pessoais; fica fora do repositório público)
+*.pdf
+
+## SO
+Thumbs.db
+.DS_Store

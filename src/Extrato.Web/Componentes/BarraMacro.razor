@@ -1,0 +1,19 @@
+<div class="macro">
+    <div class="rotulo">
+        <span><span class="ponto @Classe"></span>@Nome</span>
+        <span class="numero"><strong>@Consumido.ToString("0")</strong> / @Meta.ToString("0") @Unidade
+            <span class="suave">· @(Restante >= 0 ? $"faltam {Restante:0}" : $"+{-Restante:0}")</span></span>
+    </div>
+    <div class="barra"><span class="@Classe @(Consumido > Meta * 1.05m ? "estouro" : "")" style="width:@Percentual%"></span></div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Nome { get; set; } = "";
+    [Parameter] public string Classe { get; set; } = "c-kcal";
+    [Parameter] public string Unidade { get; set; } = "g";
+    [Parameter] public decimal Meta { get; set; }
+    [Parameter] public decimal Consumido { get; set; }
+
+    private decimal Restante => Meta - Consumido;
+    private string Percentual => (Meta <= 0 ? 0 : Math.Min(100, Consumido / Meta * 100)).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+}

@@ -1,0 +1,211 @@
+@page "/treino"
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>extrato · treino</PageTitle>
+
+<div class="topo">
+    <div>
+        <h1>Treino</h1>
+        <p class="subtitulo">Evolução sempre por aparelho: carga de máquina não é comparável entre academias.</p>
+    </div>
+    <div class="linha">
+        <select @bind="_rotinaId" style="max-width:200px">
+            <option value="">Aparelhos avulsos</option>
+            @foreach (var r in _rotinas) { <option value="@r.Id">@r.Nome</option> }
+        </select>
+        <button class="btn saldo" disabled="@_ocupado" @onclick="IniciarSessao">Iniciar sessão</button>
+    </div>
+</div>
+
+@if (_erro != null) { <div class="erro">@_erro</div> }
+@if (_semana != null) { @foreach (var a in _semana.Alertas) { <div class="aviso">@a</div> } }
+
+<div class="grade">
+    <section class="cartao">
+        <h2>Volume da semana</h2>
+        @if (_semana is null || _semana.Grupos.Count == 0) { <p class="suave">Nenhuma série nos últimos 7 dias.</p> }
+        else
+        {
+            var max = _semana.Grupos.Max(g => g.Volume);
+            @foreach (var g in _semana.Grupos)
+            {
+                <div class="macro">
+                    <div class="rotulo"><span>@g.GrupoMuscular</span><span class="numero">@g.Volume.ToString("N0") kg · @g.Series séries</span></div>
+                    <div class="barra"><span class="c-prot" style="width:@((max == 0 ? 0 : g.Volume / max * 100).ToString("0", System.Globalization.CultureInfo.InvariantCulture))%"></span></div>
+                </div>
+            }
+        }
+        <h3 style="margin-top:16px">Sessões recentes</h3>
+        @foreach (var s in _sessoes)
+        {
+            <div class="lancamento">
+                <a href="@($"treino/sessao/{s.Id}")" class="cresce">@s.DataHora.ToString("dd/MM HH:mm") · @(s.Rotina ?? "avulsa")</a>
+                <span class="suave pequeno numero">@s.TotalSeries séries · @s.Volume.ToString("N0") kg</span>
+            </div>
+        }
+    </section>
+
+    <section class="cartao">
+        <h2>Aparelhos</h2>
+        @foreach (var grupo in _aparelhos.GroupBy(a => a.GrupoMuscular))
+        {
+            <div class="suave pequeno" style="margin-top:8px">@grupo.Key</div>
+            @foreach (var a in grupo)
+            {
+                <div class="lancamento">
+                    <a class="cresce" href="@($"treino/aparelho/{a.Id}")">@a.Nome</a>
+                    <span class="suave pequeno">@a.Exercicio · @a.TipoCarga.Nome()</span>
+                </div>
+            }
+        }
+        @if (_aparelhos.Count == 0) { <p class="suave">Nenhum aparelho cadastrado.</p> }
+    </section>
+</div>
+
+<div class="grade">
+    <section class="cartao">
+        <h2>Cadastrar aparelho</h2>
+        <p class="suave pequeno">Foto só no cadastro, uma vez. <strong>Sem pessoas no enquadramento</strong>: se houver, o resultado é descartado.</p>
+        <div class="linha campo">
+            <InputFile OnChange="e => _foto = e.File" accept="image/*" capture="environment" />
+            <button class="btn" disabled="@(_foto == null || _ocupado)" @onclick="AnalisarFoto">Sugerir pela foto</button>
+        </div>
+        <div class="grade-2">
+            <div class="campo"><label>Academia</label>
+                <select @bind="_aparelho.AcademiaId">
+                    @foreach (var a in _academias) { <option value="@a.Id">@a.Nome</option> }
+                </select>
+            </div>
+            <div class="campo"><label>Nova academia</label>
+                <div class="linha"><input class="cresce" @bind="_novaAcademia" style="width:auto" /><button class="btn mini" @onclick="CriarAcademia">＋</button></div>
+            </div>
+            <div class="campo"><label>Nome</label><input @bind="_aparelho.Nome" placeholder="ex.: Leg press da janela" /></div>
+            <div class="campo"><label>Exercício</label><input @bind="_aparelho.Exercicio" /></div>
+            <div class="campo"><label>Grupo muscular</label><input @bind="_aparelho.GrupoMuscular" /></div>
+            <div class="campo"><label>Tipo de carga</label>
+                <select @bind="_aparelho.TipoCarga">
+                    @foreach (var t in Enum.GetValues<TipoCarga>()) { <option value="@t">@t.Nome()</option> }
+                </select>
+            </div>
+            <div class="campo"><label>Incremento (kg)</label><input type="number" step="0.5" @bind="_aparelho.IncrementoKg" /></div>
+        </div>
+        <button class="btn primario" disabled="@_ocupado" @onclick="SalvarAparelho">Cadastrar</button>
+    </section>
+
+    <section class="cartao">
+        <h2>Rotinas</h2>
+        @foreach (var r in _rotinas)
+        {
+            <div class="lancamento"><div class="cresce"><strong>@r.Nome</strong>
+                <div class="suave pequeno">@string.Join(" · ", r.Itens.Select(i => $"{i.Aparelho} {i.SeriesAlvo}×{i.RepsMin}-{i.RepsMax}"))</div></div></div>
+        }
+        <h3 style="margin-top:14px">Nova rotina</h3>
+        <div class="campo"><label>Nome</label><input @bind="_rotina.Nome" placeholder="A, B, C…" /></div>
+        @foreach (var item in _rotina.Itens)
+        {
+            <div class="linha" style="margin-bottom:6px">
+                <span class="cresce">@(_aparelhos.FirstOrDefault(a => a.Id == item.AparelhoId)?.Nome)</span>
+                <input type="number" style="max-width:56px" @bind="item.SeriesAlvo" title="séries" />×
+                <input type="number" style="max-width:56px" @bind="item.RepsMin" title="reps mín" />–
+                <input type="number" style="max-width:56px" @bind="item.RepsMax" title="reps máx" />
+                <button class="btn mini perigo" @onclick="() => _rotina.Itens.Remove(item)">✕</button>
+            </div>
+        }
+        <div class="linha campo">
+            <select @bind="_aparelhoRotina" class="cresce" style="width:auto">
+                <option value="0">Adicionar aparelho…</option>
+                @foreach (var a in _aparelhos) { <option value="@a.Id">@a.Nome</option> }
+            </select>
+            <button class="btn mini" disabled="@(_aparelhoRotina == 0)" @onclick="AdicionarNaRotina">＋</button>
+        </div>
+        <button class="btn primario" disabled="@(_ocupado || _rotina.Itens.Count == 0)" @onclick="SalvarRotina">Salvar rotina</button>
+    </section>
+</div>
+
+@code {
+    private List<AparelhoDto> _aparelhos = [];
+    private List<AcademiaDto> _academias = [];
+    private List<RotinaDto> _rotinas = [];
+    private List<SessaoResumoDto> _sessoes = [];
+    private EvolucaoSemanaDto? _semana;
+    private NovoAparelhoDto _aparelho = new();
+    private NovaRotinaDto _rotina = new();
+    private IBrowserFile? _foto;
+    private int? _rotinaId;
+    private int _aparelhoRotina;
+    private string _novaAcademia = "";
+    private string? _erro;
+    private bool _ocupado;
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Carregar()
+    {
+        try
+        {
+            _aparelhos = await Api.AparelhosAsync();
+            _academias = await Api.AcademiasAsync();
+            _rotinas = await Api.RotinasAsync();
+            _sessoes = await Api.SessoesAsync();
+            _semana = await Api.EvolucaoSemanaAsync();
+            if (_aparelho.AcademiaId == 0 && _academias.Count > 0) _aparelho.AcademiaId = _academias[0].Id;
+        }
+        catch (Exception ex) { _erro = ex.Message; }
+    }
+
+    private async Task Executar(Func<Task> acao)
+    {
+        _ocupado = true; _erro = null;
+        try { await acao(); }
+        catch (Exception ex) { _erro = ex.Message; }
+        finally { _ocupado = false; }
+    }
+
+    private Task AnalisarFoto() => Executar(async () =>
+    {
+        var r = await Api.AnalisarAparelhoAsync(_foto!, _aparelho.Nome);
+        if (r.FalhaIA) { _erro = $"IA indisponível: {r.MensagemFalha} Preencha manualmente."; return; }
+        if (r.Descartado) { _erro = string.Join(" ", r.Alertas); return; }
+        _aparelho.Exercicio = r.Exercicio ?? _aparelho.Exercicio;
+        _aparelho.GrupoMuscular = r.GrupoMuscular ?? _aparelho.GrupoMuscular;
+        if (r.TipoCarga is { } t) _aparelho.TipoCarga = t;
+        if (string.IsNullOrWhiteSpace(_aparelho.Nome)) _aparelho.Nome = r.Exercicio ?? "";
+    });
+
+    private Task CriarAcademia() => Executar(async () =>
+    {
+        if (string.IsNullOrWhiteSpace(_novaAcademia)) return;
+        var a = await Api.CriarAcademiaAsync(new NovaAcademiaDto { Nome = _novaAcademia });
+        _novaAcademia = "";
+        _academias = await Api.AcademiasAsync();
+        _aparelho.AcademiaId = a.Id;
+    });
+
+    private Task SalvarAparelho() => Executar(async () =>
+    {
+        await Api.CriarAparelhoAsync(_aparelho);
+        _aparelho = new() { AcademiaId = _aparelho.AcademiaId };
+        _foto = null;
+        await Carregar();
+    });
+
+    private void AdicionarNaRotina()
+    {
+        _rotina.Itens.Add(new NovoRotinaItemDto { AparelhoId = _aparelhoRotina });
+        _aparelhoRotina = 0;
+    }
+
+    private Task SalvarRotina() => Executar(async () =>
+    {
+        await Api.CriarRotinaAsync(_rotina);
+        _rotina = new();
+        await Carregar();
+    });
+
+    private Task IniciarSessao() => Executar(async () =>
+    {
+        var s = await Api.IniciarSessaoAsync(new NovaSessaoDto { RotinaId = _rotinaId });
+        Nav.NavigateTo($"treino/sessao/{s.Id}");
+    });
+}

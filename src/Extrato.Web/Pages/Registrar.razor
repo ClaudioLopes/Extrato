@@ -1,0 +1,281 @@
+@page "/registrar"
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>extrato · registrar</PageTitle>
+
+<div class="topo">
+    <div>
+        <h1>Registrar refeição</h1>
+        <p class="subtitulo">A IA sugere, você confirma. Nada entra no saldo sem confirmação.</p>
+    </div>
+</div>
+
+<div class="cartao">
+    <div class="grade-2">
+        <div class="campo">
+            <label>Refeição</label>
+            <select @bind="_tipo">
+                @foreach (var t in Enum.GetValues<TipoRefeicao>()) { <option value="@t">@t.Nome()</option> }
+            </select>
+        </div>
+        <div class="campo">
+            <label>Descrição (prevalece sobre a foto)</label>
+            <input @bind="_descricao" placeholder="ex.: 2 conchas de arroz, filé ~150 g" />
+        </div>
+    </div>
+
+    <div class="abas">
+        <button class="@(_aba == Aba.Foto ? "ativa" : "")" @onclick="() => _aba = Aba.Foto">📷 Foto</button>
+        <button class="@(_aba == Aba.Manual ? "ativa" : "")" @onclick="() => _aba = Aba.Manual">🔎 Manual</button>
+        <button class="@(_aba == Aba.Favorito ? "ativa" : "")" @onclick="() => _aba = Aba.Favorito">★ Favoritos</button>
+    </div>
+
+    @if (_mensagem != null) { <div class="aviso">@_mensagem</div> }
+    @if (_erro != null) { <div class="erro">@_erro</div> }
+
+    @switch (_aba)
+    {
+        case Aba.Foto:
+            <p class="suave pequeno">A foto é reduzida e limpa (sem EXIF/GPS) em memória, enviada à IA (@_provedor) e descartada. Só os dados confirmados ficam no banco.</p>
+            <div class="linha">
+                <InputFile OnChange="EscolherFoto" accept="image/*" capture="environment" />
+                <button class="btn primario" disabled="@(_foto == null || _ocupado)" @onclick="Analisar">@(_ocupado ? "Analisando…" : "Analisar foto")</button>
+            </div>
+            @foreach (var a in _alertasIA) { <div class="aviso" style="margin-top:10px">@a</div> }
+            break;
+
+        case Aba.Manual:
+            <div class="campo">
+                <BuscaAlimento AoEscolher="Adicionar" />
+            </div>
+            break;
+
+        case Aba.Favorito:
+            @if (_favoritos.Count == 0) { <p class="suave">Sem favoritos. Crie em Ajustes.</p> }
+            @foreach (var f in _favoritos)
+            {
+                <div class="lancamento">
+                    <div class="cresce">
+                        <strong>@f.Nome</strong>
+                        <div class="suave pequeno">@string.Join(", ", f.Itens.Select(i => $"{i.Alimento} {i.Gramas:0} g"))</div>
+                    </div>
+                    <div style="text-align:right">
+                        <div class="numero">@f.Total.Kcal.ToString("0") kcal</div>
+                        <button class="btn mini" @onclick="() => UsarFavorito(f)">Usar</button>
+                    </div>
+                </div>
+            }
+            break;
+    }
+</div>
+
+@if (_itens.Count > 0)
+{
+    <div class="cartao">
+        <h2>Revisão</h2>
+        <div class="tabela-rolagem">
+            <table>
+                <thead><tr><th>Alimento</th><th style="width:110px">Gramas</th><th>kcal</th><th>P</th><th>C</th><th>G</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var i in _itens)
+                    {
+                        <tr>
+                            <td>
+                                @if (i.AlimentoId is null)
+                                {
+                                    <div class="pequeno"><span class="etiqueta erro">não identificado</span> IA: “@i.NomeIA”</div>
+                                    <BuscaAlimento TermoInicial="@i.NomeIA" Placeholder="Escolha o alimento" AoEscolher="a => Definir(i, a)" />
+                                }
+                                else
+                                {
+                                    <div>@i.AlimentoNome</div>
+                                    @if (i.NomeIA != null) { <div class="suave pequeno">IA: @i.NomeIA@(i.Observacao != null ? $" · {i.Observacao}" : "")</div> }
+                                }
+                                <div class="chips" style="margin-top:4px">
+                                    @if (i.BaixaConfianca) { <span class="etiqueta baixa">confiança baixa @((i.Confianca ?? 0).ToString("P0"))</span> }
+                                    @if (i.Evitado) { <span class="etiqueta erro">você evita este alimento</span> }
+                                </div>
+                            </td>
+                            <td><input type="number" min="1" max="1500" step="5" @bind="i.Gramas" @bind:event="oninput" /></td>
+                            <td class="numero">@i.Macro(x => x.Kcal).ToString("0")</td>
+                            <td class="numero">@i.Macro(x => x.ProteinaG).ToString("0.#")</td>
+                            <td class="numero">@i.Macro(x => x.CarboG).ToString("0.#")</td>
+                            <td class="numero">@i.Macro(x => x.GorduraG).ToString("0.#")</td>
+                            <td><button class="btn mini perigo" @onclick="() => _itens.Remove(i)">✕</button></td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="forte">
+                        <td>Total</td><td></td>
+                        <td class="numero">@_itens.Sum(i => i.Macro(x => x.Kcal)).ToString("0")</td>
+                        <td class="numero">@_itens.Sum(i => i.Macro(x => x.ProteinaG)).ToString("0")</td>
+                        <td class="numero">@_itens.Sum(i => i.Macro(x => x.CarboG)).ToString("0")</td>
+                        <td class="numero">@_itens.Sum(i => i.Macro(x => x.GorduraG)).ToString("0")</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        <p class="suave pequeno">Os macros são recalculados no servidor pela tabela (TACO ou rótulo), nunca pela IA.</p>
+        <div class="linha">
+            <button class="btn saldo" disabled="@(!PodeConfirmar || _ocupado)" @onclick="Confirmar">Confirmar lançamento</button>
+            <button class="btn" @onclick="() => _itens.Clear()">Descartar</button>
+            @if (_itens.Any(i => i.AlimentoId is null)) { <span class="suave pequeno">Escolha os itens não identificados ou remova-os.</span> }
+        </div>
+    </div>
+}
+
+@code {
+    private enum Aba { Foto, Manual, Favorito }
+
+    [SupplyParameterFromQuery(Name = "tipo")] public string? TipoQuery { get; set; }
+
+    private Aba _aba = Aba.Foto;
+    private TipoRefeicao _tipo = Rotulos.TipoPeloHorario(DateTime.Now);
+    private string? _descricao, _mensagem, _erro, _provedor;
+    private IBrowserFile? _foto;
+    private bool _ocupado;
+    private OrigemRefeicao _origem = OrigemRefeicao.Manual;
+    private List<string> _alertasIA = [];
+    private List<FavoritoDto> _favoritos = [];
+    private readonly List<ItemEdicao> _itens = [];
+
+    private bool PodeConfirmar => _itens.Count > 0 && _itens.All(i => i.AlimentoId != null && i.Gramas is >= 1 and <= 1500);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Enum.TryParse<TipoRefeicao>(TipoQuery, out var t)) _tipo = t;
+        try
+        {
+            _favoritos = await Api.FavoritosAsync();
+            _provedor = await Api.ProvedorVisaoAsync();
+        }
+        catch (Exception ex) { _erro = ex.Message; }
+    }
+
+    private void EscolherFoto(InputFileChangeEventArgs e)
+    {
+        _foto = e.File;
+        _erro = null;
+        if (_foto.Size > ApiClient.TamanhoMaxFoto) { _erro = "Foto maior que 15 MB."; _foto = null; }
+    }
+
+    private async Task Analisar()
+    {
+        if (_foto == null) return;
+        _ocupado = true; _erro = null; _mensagem = null; _alertasIA = [];
+        try
+        {
+            var r = await Api.AnalisarFotoAsync(_foto, _tipo, _descricao);
+            if (r.FalhaIA)
+            {
+                // fallback: registro manual com a descrição já preenchida
+                _mensagem = $"IA indisponível: {r.MensagemFalha} Registre manualmente.";
+                _aba = Aba.Manual;
+                return;
+            }
+            _origem = OrigemRefeicao.Foto;
+            _alertasIA = r.Alertas.ToList();
+            _itens.Clear();
+            foreach (var i in r.Itens) _itens.Add(ItemEdicao.DaIA(i));
+            if (_itens.Count == 0) _mensagem = "A IA não encontrou alimentos. Use a busca manual.";
+        }
+        catch (Exception ex) { _erro = ex.Message; _aba = Aba.Manual; }
+        finally { _ocupado = false; }
+    }
+
+    private void Adicionar(AlimentoDto a)
+    {
+        if (_itens.Count == 0) _origem = OrigemRefeicao.Manual;
+        _itens.Add(ItemEdicao.DoAlimento(a, 100));
+    }
+
+    private void Definir(ItemEdicao i, AlimentoDto a) => i.Definir(a);
+
+    private void UsarFavorito(FavoritoDto f)
+    {
+        _origem = OrigemRefeicao.Favorito;
+        _descricao ??= f.Nome;
+        _itens.Clear();
+        foreach (var i in f.Itens)
+        {
+            var m = i.Macros;
+            _itens.Add(new ItemEdicao
+            {
+                AlimentoId = i.AlimentoId, AlimentoNome = i.Alimento, Gramas = i.Gramas,
+                PorGrama = i.Gramas > 0 ? new MacrosDto(m.Kcal / i.Gramas, m.ProteinaG / i.Gramas, m.CarboG / i.Gramas, m.GorduraG / i.Gramas) : null
+            });
+        }
+        if (f.TipoSugerido is { } t) _tipo = t;
+    }
+
+    private async Task Confirmar()
+    {
+        _ocupado = true; _erro = null;
+        try
+        {
+            await Api.CriarRefeicaoAsync(new NovaRefeicaoDto
+            {
+                Tipo = _tipo,
+                Origem = _origem,
+                Descricao = _descricao,
+                Itens = _itens.Select(i => new NovoItemRefeicaoDto
+                {
+                    AlimentoId = i.AlimentoId!.Value, Gramas = i.Gramas, GramasSugeridasIA = i.GramasSugeridasIA, ConfiancaIA = i.Confianca
+                }).ToList()
+            });
+            Nav.NavigateTo("");
+        }
+        catch (Exception ex) { _erro = ex.Message; }
+        finally { _ocupado = false; }
+    }
+
+    private class ItemEdicao
+    {
+        public int? AlimentoId { get; set; }
+        public string? AlimentoNome { get; set; }
+        public decimal Gramas { get; set; }
+        public decimal? GramasSugeridasIA { get; set; }
+        public decimal? Confianca { get; set; }
+        public string? NomeIA { get; set; }
+        public string? Observacao { get; set; }
+        public bool BaixaConfianca { get; set; }
+        public bool Evitado { get; set; }
+        /// <summary>Macros por grama, só para prévia (o servidor recalcula).</summary>
+        public MacrosDto? PorGrama { get; set; }
+
+        public decimal Macro(Func<MacrosDto, decimal> sel) => PorGrama is null ? 0 : sel(PorGrama) * Gramas;
+
+        public void Definir(AlimentoDto a)
+        {
+            AlimentoId = a.Id;
+            AlimentoNome = a.Nome;
+            PorGrama = new MacrosDto(a.Kcal100g / 100, a.Proteina100g / 100, a.Carbo100g / 100, a.Gordura100g / 100);
+        }
+
+        public static ItemEdicao DoAlimento(AlimentoDto a, decimal gramas)
+        {
+            var i = new ItemEdicao { Gramas = gramas };
+            i.Definir(a);
+            return i;
+        }
+
+        public static ItemEdicao DaIA(ItemRascunhoDto r) => new()
+        {
+            AlimentoId = r.AlimentoId,
+            AlimentoNome = r.AlimentoNome,
+            Gramas = r.GramasSugeridas,
+            GramasSugeridasIA = r.GramasSugeridas,
+            Confianca = r.Confianca,
+            NomeIA = r.NomeIA + (string.IsNullOrWhiteSpace(r.Preparo) ? "" : $" ({r.Preparo})"),
+            Observacao = r.Observacao,
+            BaixaConfianca = r.BaixaConfianca,
+            Evitado = r.Evitado,
+            PorGrama = r.Macros is { } m && r.GramasSugeridas > 0
+                ? new MacrosDto(m.Kcal / r.GramasSugeridas, m.ProteinaG / r.GramasSugeridas, m.CarboG / r.GramasSugeridas, m.GorduraG / r.GramasSugeridas)
+                : null
+        };
+    }
+}

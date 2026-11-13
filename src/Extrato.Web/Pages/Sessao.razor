@@ -1,0 +1,135 @@
+@page "/treino/sessao/{Id:int}"
+@inject ApiClient Api
+
+<PageTitle>extrato · sessão</PageTitle>
+
+@if (_sessao == null)
+{
+    <p class="suave">@(_erro ?? "Carregando…")</p>
+}
+else
+{
+    <div class="topo">
+        <div>
+            <h1>Sessão @(_sessao.Rotina ?? "avulsa")</h1>
+            <p class="subtitulo">@_sessao.DataHora.ToString("dd/MM/yyyy HH:mm") · séries pré-preenchidas com a última sessão</p>
+        </div>
+        <a class="btn" href="treino">Encerrar</a>
+    </div>
+
+    @if (_erro != null) { <div class="erro">@_erro</div> }
+
+    @foreach (var ex in _sessao.Exercicios)
+    {
+        var entrada = Entrada(ex);
+        <section class="cartao">
+            <div class="linha entre">
+                <div>
+                    <h3 style="margin:0"><a href="@($"treino/aparelho/{ex.Aparelho.Id}")">@ex.Aparelho.Nome</a></h3>
+                    <div class="suave pequeno">@ex.Aparelho.Exercicio
+                        @if (ex.SeriesAlvo is { } sa) { <span>· alvo @sa×@ex.RepsMin–@ex.RepsMax</span> }
+                    </div>
+                </div>
+                <Comparacao Hoje="ex.Melhor1RmHoje" Antes="ex.Melhor1RmAnterior" VolumeHoje="ex.VolumeHoje" VolumeAntes="ex.VolumeAnterior" />
+            </div>
+
+            @if (ex.UltimaSessao.Count > 0)
+            {
+                <div class="suave pequeno" style="margin:6px 0">Última: @string.Join(" · ", ex.UltimaSessao.Select(s => $"{s.CargaKg:0.#}kg×{s.Reps}"))</div>
+            }
+
+            @foreach (var s in ex.SeriesHoje)
+            {
+                <div class="linha" style="padding:4px 0">
+                    <span class="etiqueta">@s.Ordem</span>
+                    <span class="numero forte">@s.CargaKg.ToString("0.#") kg × @s.Reps</span>
+                    @if (s.RepsNaReserva is { } rir) { <span class="suave pequeno">RIR @rir</span> }
+                    <button class="btn mini perigo" @onclick="() => RemoverSerie(s.Id)">✕</button>
+                </div>
+            }
+
+            <div class="linha" style="margin-top:8px">
+                <input type="number" step="0.5" style="max-width:100px" @bind="entrada.CargaKg" aria-label="carga" /> kg ×
+                <input type="number" style="max-width:70px" @bind="entrada.Reps" aria-label="repetições" /> reps
+                <button class="btn primario" disabled="@_ocupado" @onclick="() => Registrar(ex.Aparelho.Id, entrada)">＋ Série</button>
+            </div>
+        </section>
+    }
+
+    <section class="cartao">
+        <h3>Adicionar aparelho avulso</h3>
+        <div class="linha">
+            <select @bind="_avulso" class="cresce" style="width:auto">
+                <option value="0">Escolha…</option>
+                @foreach (var a in _aparelhos.Where(a => _sessao.Exercicios.All(e => e.Aparelho.Id != a.Id))) { <option value="@a.Id">@a.Nome</option> }
+            </select>
+            <button class="btn" disabled="@(_avulso == 0)" @onclick="AdicionarAvulso">Adicionar</button>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private SessaoDto? _sessao;
+    private List<AparelhoDto> _aparelhos = [];
+    private readonly Dictionary<int, NovaSerieDto> _entradas = [];
+    private int _avulso;
+    private string? _erro;
+    private bool _ocupado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _aparelhos = await Api.AparelhosAsync();
+            await Carregar();
+        }
+        catch (Exception ex) { _erro = ex.Message; }
+    }
+
+    private async Task Carregar() => _sessao = await Api.SessaoAsync(Id);
+
+    /// <summary>Pré-preenche com a série seguinte da última sessão (ou a última feita hoje).</summary>
+    private NovaSerieDto Entrada(ExercicioSessaoDto ex)
+    {
+        if (_entradas.TryGetValue(ex.Aparelho.Id, out var e)) return e;
+        var referencia = ex.SeriesHoje.LastOrDefault()
+            ?? ex.UltimaSessao.ElementAtOrDefault(ex.SeriesHoje.Count)
+            ?? ex.UltimaSessao.LastOrDefault();
+        e = new NovaSerieDto { AparelhoId = ex.Aparelho.Id, CargaKg = referencia?.CargaKg ?? 0, Reps = referencia?.Reps ?? ex.RepsMax ?? 10 };
+        _entradas[ex.Aparelho.Id] = e;
+        return e;
+    }
+
+    private async Task Registrar(int aparelhoId, NovaSerieDto entrada)
+    {
+        _ocupado = true; _erro = null;
+        try
+        {
+            await Api.RegistrarSerieAsync(Id, entrada);
+            _entradas.Remove(aparelhoId);
+            await Carregar();
+            // próxima série parte da que acabou de ser feita
+            _entradas[aparelhoId] = new NovaSerieDto { AparelhoId = aparelhoId, CargaKg = entrada.CargaKg, Reps = entrada.Reps };
+        }
+        catch (Exception ex) { _erro = ex.Message; }
+        finally { _ocupado = false; }
+    }
+
+    private async Task RemoverSerie(int serieId)
+    {
+        try { await Api.RemoverSerieAsync(Id, serieId); await Carregar(); }
+        catch (Exception ex) { _erro = ex.Message; }
+    }
+
+    private async Task AdicionarAvulso()
+    {
+        var a = _aparelhos.First(x => x.Id == _avulso);
+        _avulso = 0;
+        var lista = _sessao!.Exercicios.ToList();
+        lista.Add(new ExercicioSessaoDto(a, null, null, null, [], [], null, null, 0, 0));
+        _sessao = _sessao with { Exercicios = lista };
+        await Task.CompletedTask;
+    }
+}

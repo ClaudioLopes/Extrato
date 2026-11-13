@@ -1,0 +1,32 @@
+@* Resumo de fim de sessão: compara 1RM estimado e volume com a sessão anterior. *@
+<div style="text-align:right" class="pequeno numero">
+    @if (Hoje is { } h)
+    {
+        <div>1RM <strong>@h.ToString("0.#")</strong> kg @Delta(h, Antes)</div>
+    }
+    else if (Antes is { } a)
+    {
+        <div class="suave">1RM anterior @a.ToString("0.#") kg</div>
+    }
+    @if (VolumeHoje > 0)
+    {
+        <div class="suave">vol. @VolumeHoje.ToString("N0") @Delta(VolumeHoje, VolumeAntes > 0 ? VolumeAntes : null)</div>
+    }
+</div>
+
+@code {
+    [Parameter] public decimal? Hoje { get; set; }
+    [Parameter] public decimal? Antes { get; set; }
+    [Parameter] public decimal VolumeHoje { get; set; }
+    [Parameter] public decimal VolumeAntes { get; set; }
+
+    private static RenderFragment Delta(decimal hoje, decimal? antes) => b =>
+    {
+        if (antes is not { } a || a == 0) return;
+        var d = hoje - a;
+        b.OpenElement(0, "span");
+        b.AddAttribute(1, "style", $"color:{(d > 0 ? "var(--saldo)" : d < 0 ? "var(--gordura)" : "var(--suave)")}");
+        b.AddContent(2, d == 0 ? " =" : $" {(d > 0 ? "▲" : "▼")}{Math.Abs(d):0.#}");
+        b.CloseElement();
+    };
+}

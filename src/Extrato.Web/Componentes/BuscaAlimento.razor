@@ -1,0 +1,74 @@
+@inject ApiClient Api
+@implements IDisposable
+
+<div>
+    <input type="search" placeholder="@Placeholder" value="@_termo" @oninput="AoDigitar" autocomplete="off" />
+    @if (_resultados.Count > 0)
+    {
+        <div class="lista-busca">
+            @foreach (var a in _resultados)
+            {
+                <button type="button" @onclick="() => Escolher(a)">
+                    <div class="linha entre">
+                        <span>@a.Nome</span>
+                        @if (a.Fonte == FonteAlimento.Personalizado) { <span class="etiqueta">rótulo</span> }
+                    </div>
+                    <div class="suave pequeno numero">@a.Kcal100g.ToString("0") kcal · P @a.Proteina100g.ToString("0.#") · C @a.Carbo100g.ToString("0.#") · G @a.Gordura100g.ToString("0.#") (100 g)</div>
+                </button>
+            }
+        </div>
+    }
+    else if (_buscou && !string.IsNullOrWhiteSpace(_termo))
+    {
+        <div class="suave pequeno" style="margin-top:4px">Nada encontrado. Cadastre o alimento pelo rótulo em Ajustes.</div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? TermoInicial { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "Buscar alimento (TACO ou rótulo)";
+    [Parameter] public EventCallback<AlimentoDto> AoEscolher { get; set; }
+
+    private string _termo = "";
+    private List<AlimentoDto> _resultados = [];
+    private bool _buscou;
+    private CancellationTokenSource? _debounce;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(TermoInicial))
+        {
+            _termo = TermoInicial;
+            await Buscar();
+        }
+    }
+
+    private async Task AoDigitar(ChangeEventArgs e)
+    {
+        _termo = e.Value?.ToString() ?? "";
+        _debounce?.Cancel();
+        _debounce = new CancellationTokenSource();
+        var token = _debounce.Token;
+        try { await Task.Delay(250, token); } catch (TaskCanceledException) { return; }
+        await Buscar();
+    }
+
+    private async Task Buscar()
+    {
+        if (_termo.Trim().Length < 2) { _resultados = []; _buscou = false; return; }
+        try { _resultados = await Api.BuscarAlimentosAsync(_termo, 12); }
+        catch (Exception) { _resultados = []; }
+        _buscou = true;
+        StateHasChanged();
+    }
+
+    private async Task Escolher(AlimentoDto a)
+    {
+        _resultados = [];
+        _termo = "";
+        _buscou = false;
+        await AoEscolher.InvokeAsync(a);
+    }
+
+    public void Dispose() => _debounce?.Cancel();
+}

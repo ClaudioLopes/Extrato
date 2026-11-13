@@ -1,0 +1,251 @@
+@page "/ajustes"
+@inject ApiClient Api
+
+<PageTitle>extrato · ajustes</PageTitle>
+
+<div class="topo">
+    <div>
+        <h1>Perfil, regras e metas</h1>
+        <p class="subtitulo">Todos os coeficientes são editáveis. O app não substitui um nutricionista.</p>
+    </div>
+</div>
+
+@if (_erro != null) { <div class="erro">@_erro</div> }
+@if (_ok != null) { <div class="ok">@_ok</div> }
+
+<div class="grade">
+    <section class="cartao">
+        <h2>Perfil</h2>
+        @if (_perfil != null)
+        {
+            <EditForm Model="_perfil" OnValidSubmit="SalvarPerfil">
+                <DataAnnotationsValidator />
+                <div class="campo"><label>Nome</label><InputText @bind-Value="_perfil.Nome" /></div>
+                <div class="grade-2">
+                    <div class="campo"><label>Sexo</label>
+                        <InputSelect @bind-Value="_perfil.Sexo"><option value="@Sexo.Masculino">Masculino</option><option value="@Sexo.Feminino">Feminino</option></InputSelect>
+                    </div>
+                    <div class="campo"><label>Nascimento</label><InputDate @bind-Value="_perfil.DataNascimento" /></div>
+                    <div class="campo"><label>Altura (cm)</label><InputNumber @bind-Value="_perfil.AlturaCm" /></div>
+                    <div class="campo"><label>Peso hoje (kg)</label><InputNumber @bind-Value="_perfil.PesoAtualKg" /></div>
+                </div>
+                <div class="campo"><label>Nível de atividade</label>
+                    <InputSelect @bind-Value="_perfil.NivelAtividade">
+                        @foreach (var n in Enum.GetValues<NivelAtividade>()) { <option value="@n">@n.Nome()</option> }
+                    </InputSelect>
+                </div>
+                <div class="campo"><label>Objetivo (um modo ativo por vez)</label>
+                    <InputSelect @bind-Value="_perfil.Objetivo">
+                        @foreach (var o in Enum.GetValues<Objetivo>()) { <option value="@o">@o.Nome()</option> }
+                    </InputSelect>
+                </div>
+                <div class="campo"><label>Alimentos evitados (separados por vírgula)</label><input @bind="_evitados" /></div>
+                <ValidationSummary />
+                <button class="btn primario" type="submit" disabled="@_ocupado">Salvar perfil</button>
+            </EditForm>
+        }
+    </section>
+
+    <section class="cartao">
+        <h2>Regras</h2>
+        @if (_regras != null)
+        {
+            <EditForm Model="_regras" OnValidSubmit="SalvarRegras">
+                <DataAnnotationsValidator />
+                <div class="grade-2">
+                    <div class="campo"><label>Proteína (g/kg, 1,6–2,2)</label><InputNumber @bind-Value="_regras.ProteinaGPorKg" step="0.1" /></div>
+                    <div class="campo"><label>Gordura (g/kg, 0,8–1,0)</label><InputNumber @bind-Value="_regras.GorduraGPorKg" step="0.05" /></div>
+                    <div class="campo"><label>Ajuste kcal (vazio = padrão)</label><InputNumber @bind-Value="_regras.AjusteKcal" /></div>
+                    <div class="campo"><label>Fator atividade manual</label><InputNumber @bind-Value="_regras.FatorAtividade" step="0.025" /></div>
+                </div>
+                <label>Pesos das refeições (café · almoço · tarde · noite)</label>
+                <div class="grade-4 campo">
+                    <InputNumber @bind-Value="_regras.PesosRefeicao.Cafe" step="0.05" />
+                    <InputNumber @bind-Value="_regras.PesosRefeicao.Almoco" step="0.05" />
+                    <InputNumber @bind-Value="_regras.PesosRefeicao.Tarde" step="0.05" />
+                    <InputNumber @bind-Value="_regras.PesosRefeicao.Noite" step="0.05" />
+                </div>
+                <div class="grade-2">
+                    <div class="campo"><label>Piso das refeições (fração)</label><InputNumber @bind-Value="_regras.PisoRefeicao" step="0.05" /></div>
+                    <div class="campo"><label>Hora do alerta de proteína</label><InputNumber @bind-Value="_regras.HoraAlertaProteina" /></div>
+                    <div class="campo"><label>Trava: proteína máx (g/kg)</label><InputNumber @bind-Value="_regras.Travas.ProteinaMaxGPorKg" step="0.1" /></div>
+                    <div class="campo"><label>Trava: variação máx/semana</label><InputNumber @bind-Value="_regras.Travas.VariacaoMaxKcalSemana" /></div>
+                    <div class="campo"><label>Trava: superávit máx</label><InputNumber @bind-Value="_regras.Travas.SuperavitMaxKcal" /></div>
+                    <div class="campo"><label>Trava: déficit máx</label><InputNumber @bind-Value="_regras.Travas.DeficitMaxKcal" /></div>
+                </div>
+                <ValidationSummary />
+                <button class="btn primario" type="submit" disabled="@_ocupado">Salvar regras</button>
+            </EditForm>
+        }
+    </section>
+</div>
+
+<section class="cartao">
+    <div class="linha entre">
+        <h2>Meta diária</h2>
+        <div class="linha">
+            <button class="btn" disabled="@_ocupado" @onclick="Simular">Ver cálculo</button>
+            <button class="btn primario" disabled="@_ocupado" @onclick="Recalcular">Recalcular a partir do perfil</button>
+        </div>
+    </div>
+    @if (_meta != null)
+    {
+        <p class="numero">Vigente desde @_meta.VigenteDesde.ToString("dd/MM/yyyy") (@_meta.Origem):
+            <strong>@_meta.Kcal kcal</strong> ·
+            <span class="ponto c-prot"></span>P @_meta.ProteinaG.ToString("0") g ·
+            <span class="ponto c-carb"></span>C @_meta.CarboG.ToString("0") g ·
+            <span class="ponto c-gord"></span>G @_meta.GorduraG.ToString("0") g</p>
+    }
+    @if (_calculo != null)
+    {
+        <div class="aviso" style="background:var(--fundo);color:var(--texto)">
+            <strong>Racional</strong>
+            <ul style="margin:6px 0 0;padding-left:18px">
+                @foreach (var r in _calculo.Racional) { <li>@r</li> }
+            </ul>
+        </div>
+    }
+    <details>
+        <summary class="suave">Sobrescrever manualmente</summary>
+        <div class="grade-4" style="margin-top:10px">
+            <div><label>kcal</label><input type="number" @bind="_manual.Kcal" /></div>
+            <div><label>Proteína g</label><input type="number" @bind="_manual.ProteinaG" /></div>
+            <div><label>Carbo g</label><input type="number" @bind="_manual.CarboG" /></div>
+            <div><label>Gordura g</label><input type="number" @bind="_manual.GorduraG" /></div>
+        </div>
+        <button class="btn" style="margin-top:10px" disabled="@_ocupado" @onclick="SalvarManual">Definir meta manual</button>
+    </details>
+</section>
+
+<div class="grade">
+    <section class="cartao">
+        <h2>Alimento por rótulo</h2>
+        <p class="suave pequeno">Industrializados (whey, pré-treino…) não estão na TACO. Valores por 100 g.</p>
+        <div class="campo"><label>Nome</label><input @bind="_alimento.Nome" /></div>
+        <div class="grade-2">
+            <div class="campo"><label>kcal</label><input type="number" @bind="_alimento.Kcal100g" /></div>
+            <div class="campo"><label>Proteína g</label><input type="number" step="0.1" @bind="_alimento.Proteina100g" /></div>
+            <div class="campo"><label>Carboidrato g</label><input type="number" step="0.1" @bind="_alimento.Carbo100g" /></div>
+            <div class="campo"><label>Gordura g</label><input type="number" step="0.1" @bind="_alimento.Gordura100g" /></div>
+        </div>
+        <div class="campo"><label>Sinônimos (vírgula)</label><input @bind="_sinonimos" placeholder="ex.: whey, proteína do soro" /></div>
+        <button class="btn primario" disabled="@(_ocupado || string.IsNullOrWhiteSpace(_alimento.Nome))" @onclick="SalvarAlimento">Cadastrar alimento</button>
+    </section>
+
+    <section class="cartao">
+        <h2>Porções favoritas</h2>
+        @foreach (var f in _favoritos)
+        {
+            <div class="lancamento">
+                <div class="cresce"><strong>@f.Nome</strong> @if (f.TipoSugerido is { } t) { <span class="etiqueta">@t.Nome()</span> }
+                    <div class="suave pequeno">@string.Join(", ", f.Itens.Select(i => $"{i.Alimento} {i.Gramas:0} g"))</div></div>
+                <div style="text-align:right"><div class="numero">@f.Total.Kcal.ToString("0") kcal</div>
+                    <button class="btn mini perigo" @onclick="() => RemoverFavorito(f.Id)">remover</button></div>
+            </div>
+        }
+        <h3 style="margin-top:14px">Novo favorito</h3>
+        <div class="grade-2">
+            <div class="campo"><label>Nome</label><input @bind="_novoFav.Nome" /></div>
+            <div class="campo"><label>Refeição sugerida</label>
+                <select @bind="_novoFav.TipoSugerido">
+                    <option value="">—</option>
+                    @foreach (var t in Enum.GetValues<TipoRefeicao>()) { <option value="@t">@t.Nome()</option> }
+                </select>
+            </div>
+        </div>
+        @foreach (var (item, nome) in _itensFav)
+        {
+            <div class="linha" style="margin-bottom:6px">
+                <span class="cresce">@nome</span>
+                <input type="number" style="max-width:90px" @bind="item.Gramas" /> g
+                <button class="btn mini perigo" @onclick="() => _itensFav.RemoveAll(x => x.Item == item)">✕</button>
+            </div>
+        }
+        <div class="campo"><BuscaAlimento AoEscolher="a => _itensFav.Add((new NovoFavoritoItemDto { AlimentoId = a.Id, Gramas = 100 }, a.Nome))" /></div>
+        <button class="btn primario" disabled="@(_ocupado || _itensFav.Count == 0 || string.IsNullOrWhiteSpace(_novoFav.Nome))" @onclick="SalvarFavorito">Salvar favorito</button>
+    </section>
+</div>
+
+@code {
+    private PerfilDto? _perfil;
+    private RegrasDto? _regras;
+    private MetaDto? _meta;
+    private CalculoMetaDto? _calculo;
+    private MetaManualDto _manual = new();
+    private NovoAlimentoDto _alimento = new();
+    private NovoFavoritoDto _novoFav = new();
+    private List<(NovoFavoritoItemDto Item, string Nome)> _itensFav = [];
+    private List<FavoritoDto> _favoritos = [];
+    private string _evitados = "", _sinonimos = "";
+    private string? _erro, _ok;
+    private bool _ocupado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _perfil = await Api.PerfilAsync();
+            _evitados = string.Join(", ", _perfil.AlimentosEvitados);
+            _regras = await Api.RegrasAsync();
+            _favoritos = await Api.FavoritosAsync();
+            await CarregarMeta();
+        }
+        catch (Exception ex) { _erro = ex.Message; }
+    }
+
+    private async Task CarregarMeta()
+    {
+        try
+        {
+            _meta = await Api.MetaAtualAsync();
+            _manual = new MetaManualDto { Kcal = _meta.Kcal, ProteinaG = _meta.ProteinaG, CarboG = _meta.CarboG, GorduraG = _meta.GorduraG };
+        }
+        catch (ApiException) { _meta = null; }
+    }
+
+    private async Task Executar(Func<Task> acao, string mensagem)
+    {
+        _ocupado = true; _erro = null; _ok = null;
+        try { await acao(); _ok = mensagem; }
+        catch (Exception ex) { _erro = ex.Message; }
+        finally { _ocupado = false; }
+    }
+
+    private Task SalvarPerfil() => Executar(async () =>
+    {
+        _perfil!.AlimentosEvitados = _evitados.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        _perfil = await Api.SalvarPerfilAsync(_perfil);
+    }, "Perfil salvo. Recalcule a meta se mudou peso, atividade ou objetivo.");
+
+    private Task SalvarRegras() => Executar(async () => _regras = await Api.SalvarRegrasAsync(_regras!), "Regras salvas.");
+    private Task Simular() => Executar(async () => _calculo = await Api.SimularMetaAsync(), "Cálculo pronto (nada gravado).");
+
+    private Task Recalcular() => Executar(async () =>
+    {
+        _calculo = await Api.RecalcularMetaAsync();
+        await CarregarMeta();
+    }, "Nova meta gravada.");
+
+    private Task SalvarManual() => Executar(async () => { await Api.MetaManualAsync(_manual); await CarregarMeta(); }, "Meta manual gravada.");
+
+    private Task SalvarAlimento() => Executar(async () =>
+    {
+        _alimento.Sinonimos = _sinonimos.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        var a = await Api.CriarAlimentoAsync(_alimento);
+        _alimento = new(); _sinonimos = "";
+    }, "Alimento cadastrado.");
+
+    private Task SalvarFavorito() => Executar(async () =>
+    {
+        _novoFav.Itens = _itensFav.Select(x => x.Item).ToList();
+        await Api.CriarFavoritoAsync(_novoFav);
+        _novoFav = new(); _itensFav = [];
+        _favoritos = await Api.FavoritosAsync();
+    }, "Favorito salvo.");
+
+    private Task RemoverFavorito(int id) => Executar(async () =>
+    {
+        await Api.RemoverFavoritoAsync(id);
+        _favoritos = await Api.FavoritosAsync();
+    }, "Favorito removido.");
+}
