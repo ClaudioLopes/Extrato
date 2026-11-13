@@ -1,6 +1,7 @@
 @page "/ajustes"
 @inject ApiClient Api
 @inject SessaoEstado Sessao
+@inject IJSRuntime JS
 
 <PageTitle>extrato · ajustes</PageTitle>
 
@@ -272,7 +273,12 @@
 
     private async Task Sair()
     {
+        var pendentes = (await Api.LerFila()).Count;
+        if (pendentes > 0 && !await JS.InvokeAsync<bool>("extrato.confirmar",
+                $"Há {pendentes} lançamento(s) ainda não enviados. Sair apaga os dados deste aparelho e eles serão perdidos. Sair mesmo assim?"))
+            return;
         try { await Api.LogoutAsync(); } catch (Exception) { }
+        await Api.LimparDadosLocaisAsync(); // dados de saúde não ficam no aparelho depois de sair
         Sessao.Definir(Sessao.Atual! with { Autenticado = false, Login = null });
     }
 

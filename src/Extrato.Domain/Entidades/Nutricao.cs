@@ -156,6 +156,8 @@ public class Refeicao
     public TipoRefeicao Tipo { get; set; }
     public OrigemRefeicao Origem { get; set; }
     public string? DescricaoUsuario { get; set; }
+    /// <summary>Id gerado no aparelho para lançamentos offline: reenvio não duplica.</summary>
+    public Guid? IdCliente { get; set; }
     public List<ItemRefeicao> Itens { get; set; } = [];
 
     public Macros Total() => Macros.Somar(Itens.Select(i => i.Macros()));

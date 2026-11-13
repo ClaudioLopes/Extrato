@@ -128,6 +128,7 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
             e.ToTable("Refeicao");
             e.Property(x => x.DescricaoUsuario).HasMaxLength(500);
             e.HasIndex(x => new { x.UsuarioId, x.DataHora });
+            e.HasIndex(x => new { x.UsuarioId, x.IdCliente }).IsUnique().HasFilter("[IdCliente] IS NOT NULL");
             e.HasOne<Usuario>().WithMany().HasForeignKey(x => x.UsuarioId);
             e.HasMany(x => x.Itens).WithOne().HasForeignKey(x => x.RefeicaoId).OnDelete(DeleteBehavior.Cascade);
         });

@@ -46,6 +46,25 @@ public static class TextoBusca
     }
 
     /// <summary>
+    /// Pontuação de um alimento para a consulta já normalizada, considerando nome e sinônimos
+    /// (também normalizados). Igual = 1; prefixo = 0,9; senão média das similaridades.
+    /// Usada pelo servidor e pela busca offline do app.
+    /// </summary>
+    public static double Pontuar(string consultaNormalizada, IEnumerable<string> termosNormalizados)
+    {
+        double score = 0;
+        foreach (var termo in termosNormalizados)
+        {
+            double s;
+            if (termo == consultaNormalizada) s = 1.0;
+            else if (termo.StartsWith(consultaNormalizada + " ", StringComparison.Ordinal)) s = 0.9;
+            else s = (Similaridade(consultaNormalizada, termo) + SimilaridadeConsulta(consultaNormalizada, termo)) / 2;
+            if (s > score) score = s;
+        }
+        return score;
+    }
+
+    /// <summary>
     /// Similaridade de palavra (word_similarity): quanto da consulta aparece no nome.
     /// Melhor para "arroz" vs "Arroz, tipo 1, cozido".
     /// </summary>

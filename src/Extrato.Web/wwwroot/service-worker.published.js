@@ -1,5 +1,6 @@
-// Caution! Be sure you understand the caveats before publishing an application with
-// offline support. See https://aka.ms/blazor-offline-considerations
+// Service worker do extrato (build publicado). Guarda os arquivos do app para abrir sem internet.
+// Os DADOS não passam por aqui: /api/* vai sempre à rede; o modo offline dos dados é feito pelo
+// app (localStorage, apagado ao sair). Ver https://aka.ms/blazor-offline-considerations
 
 self.importScripts('./service-worker-assets.js');
 self.addEventListener('install', event => event.waitUntil(onInstall(event)));
@@ -8,8 +9,10 @@ self.addEventListener('fetch', event => event.respondWith(onFetch(event)));
 
 const cacheNamePrefix = 'offline-cache-';
 const cacheName = `${cacheNamePrefix}${self.assetsManifest.version}`;
-const offlineAssetsInclude = [ /\.dll$/, /\.pdb$/, /\.wasm/, /\.html/, /\.js$/, /\.json$/, /\.css$/, /\.woff$/, /\.png$/, /\.jpe?g$/, /\.gif$/, /\.ico$/, /\.blat$/, /\.dat$/, /\.webmanifest$/ ];
+const cacheFontes = 'extrato-fontes-v1';
+const offlineAssetsInclude = [ /\.dll$/, /\.pdb$/, /\.wasm/, /\.html/, /\.js$/, /\.json$/, /\.css$/, /\.woff2?$/, /\.png$/, /\.svg$/, /\.jpe?g$/, /\.gif$/, /\.ico$/, /\.blat$/, /\.dat$/, /\.webmanifest$/ ];
 const offlineAssetsExclude = [ /^service-worker\.js$/ ];
+const hostsFontes = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
 // Replace with your base path if you are hosting on a subfolder. Ensure there is a trailing '/'.
 const base = "/";
@@ -38,11 +41,27 @@ async function onActivate(event) {
 }
 
 async function onFetch(event) {
+    const url = new URL(event.request.url);
+
+    // API: sempre rede, nunca cache (dados de saúde e respostas por usuário)
+    if (url.origin === self.origin && url.pathname.startsWith('/api/')) {
+        return fetch(event.request);
+    }
+
+    // Fontes do Google: cache primeiro, atualiza em segundo plano
+    if (event.request.method === 'GET' && hostsFontes.includes(url.hostname)) {
+        const cache = await caches.open(cacheFontes);
+        const salva = await cache.match(event.request);
+        const daRede = fetch(event.request)
+            .then(resp => { if (resp.ok || resp.type === 'opaque') cache.put(event.request, resp.clone()); return resp; })
+            .catch(() => salva);
+        return salva || daRede;
+    }
+
     let cachedResponse = null;
     if (event.request.method === 'GET') {
         // For all navigation requests, try to serve index.html from cache,
         // unless that request is for an offline resource.
-        // If you need some URLs to be server-rendered, edit the following check to exclude those URLs
         const shouldServeIndexHtml = event.request.mode === 'navigate'
             && !manifestUrlList.some(url => url === event.request.url);
 

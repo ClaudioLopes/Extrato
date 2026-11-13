@@ -1,6 +1,7 @@
 @page "/registrar"
 @inject ApiClient Api
 @inject NavigationManager Nav
+@inject RedeEstado Rede
 
 <PageTitle>extrato · registrar</PageTitle>
 
@@ -36,6 +37,10 @@
 
     @switch (_aba)
     {
+        case Aba.Foto when !Rede.Online:
+            <div class="aviso">Sem conexão: a análise por foto precisa da IA. Use a busca manual ou um favorito; o lançamento é enviado quando a conexão voltar.</div>
+            break;
+
         case Aba.Foto:
             <p class="suave pequeno">A foto é reduzida e limpa (sem EXIF/GPS) em memória, enviada à IA (@_provedor) e descartada. Só os dados confirmados ficam no banco.</p>
             <div class="linha">
@@ -147,12 +152,11 @@
     protected override async Task OnInitializedAsync()
     {
         if (Enum.TryParse<TipoRefeicao>(TipoQuery, out var t)) _tipo = t;
-        try
-        {
-            _favoritos = await Api.FavoritosAsync();
-            _provedor = await Api.ProvedorVisaoAsync();
-        }
+        try { _favoritos = await Api.FavoritosAsync(); }
         catch (Exception ex) { _erro = ex.Message; }
+        try { _provedor = await Api.ProvedorVisaoAsync(); }
+        catch (ApiException) { /* offline: a foto fica indisponível */ }
+        if (!Rede.Online) _aba = Aba.Manual;
     }
 
     private void EscolherFoto(InputFileChangeEventArgs e)

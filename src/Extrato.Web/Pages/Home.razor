@@ -1,6 +1,8 @@
 ﻿@page "/"
 @inject ApiClient Api
 @inject NavigationManager Nav
+@inject RedeEstado Rede
+@implements IDisposable
 
 <PageTitle>extrato · painel</PageTitle>
 
@@ -118,7 +120,8 @@ else
                 <div style="text-align:right">
                     <div class="numero forte">−@l.Total.Kcal.ToString("0") kcal</div>
                     <div class="suave pequeno numero">P @l.Total.ProteinaG.ToString("0") · C @l.Total.CarboG.ToString("0") · G @l.Total.GorduraG.ToString("0")</div>
-                    <button class="btn mini perigo" disabled="@_ocupado" @onclick="() => Remover(l.Id)">remover</button>
+                    @if (l.Id > 0) { <button class="btn mini perigo" disabled="@_ocupado" @onclick="() => Remover(l.Id)">remover</button> }
+                    else { <span class="etiqueta baixa">aguardando envio</span> }
                 </div>
             </div>
         }
@@ -133,7 +136,16 @@ else
     private string? _erro;
     private bool _semMeta, _ocupado;
 
-    protected override Task OnInitializedAsync() => Carregar();
+    protected override Task OnInitializedAsync()
+    {
+        Rede.Sincronizou += AoSincronizar;
+        return Carregar();
+    }
+
+    // a fila foi enviada: troca o painel calculado no aparelho pelo do servidor
+    private void AoSincronizar() => InvokeAsync(async () => { await Carregar(); StateHasChanged(); });
+
+    public void Dispose() => Rede.Sincronizou -= AoSincronizar;
 
     private async Task Carregar()
     {

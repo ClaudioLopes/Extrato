@@ -51,19 +51,23 @@ public class AlimentoService(IAppDbContext db)
         var lista = new List<MatchAlimento>(indice.Count);
         foreach (var (alimento, termos) in indice)
         {
-            double score = 0;
-            foreach (var termo in termos)
-            {
-                double s;
-                if (termo == q) s = 1.0;
-                else if (termo.StartsWith(q + " ", StringComparison.Ordinal)) s = 0.9;
-                else s = (TextoBusca.Similaridade(q, termo) + TextoBusca.SimilaridadeConsulta(q, termo)) / 2;
-                score = Math.Max(score, s);
-            }
+            var score = TextoBusca.Pontuar(q, termos);
             if (score > 0) lista.Add(new MatchAlimento(alimento, score));
         }
         // empate: prefere nome mais curto (mais genérico)
         return lista.OrderByDescending(m => m.Score).ThenBy(m => m.Alimento.Nome.Length).ToList();
+    }
+
+    /// <summary>Catálogo completo (com sinônimos) para a busca offline do app.</summary>
+    public async Task<CatalogoAlimentosDto> CatalogoAsync(CancellationToken ct)
+    {
+        var alimentos = await db.Alimentos.AsNoTracking().Include(a => a.Sinonimos).OrderBy(a => a.Id).ToListAsync(ct);
+        var itens = alimentos.Select(a => new AlimentoCatalogoDto(a.ParaDto(),
+            [a.NomeNormalizado, .. a.Sinonimos.Select(s => s.Termo)])).ToList();
+        // versão muda quando qualquer alimento muda (nome, valores ou sinônimos)
+        var assinatura = string.Join("|", itens.Select(i => $"{i.Alimento.Id}:{i.Alimento.Nome}:{i.Alimento.Kcal100g}:{i.Alimento.Proteina100g}:{i.Alimento.Carbo100g}:{i.Alimento.Gordura100g}:{string.Join(",", i.Termos)}"));
+        var versao = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(assinatura)))[..16];
+        return new CatalogoAlimentosDto(versao, itens);
     }
 
     public async Task<AlimentoDto> CriarAsync(NovoAlimentoDto dto, CancellationToken ct)

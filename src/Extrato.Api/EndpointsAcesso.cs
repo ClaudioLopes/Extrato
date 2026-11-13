@@ -27,7 +27,7 @@ public static class EndpointsAcesso
             IOptions<OpcoesAcesso> opcoes, CancellationToken ct) =>
         {
             var login = await s.ConfigurarAsync(dto, RequisicaoLocal(ctx), opcoes.Value.CodigoConfiguracao, ct);
-            await Entrar(ctx, login, lembrar: true);
+            await Entrar(ctx, login, (await s.CarimboAtualAsync(login, ct))!, lembrar: true);
             return new SessaoUsuarioDto(true, true, login);
         }).AllowAnonymous().RequireRateLimiting(PoliticaLogin);
 
@@ -36,7 +36,7 @@ public static class EndpointsAcesso
             var login = await s.ValidarAsync(dto.Login, dto.Senha, ct);
             if (login is null)
                 return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Acesso negado", detail: "Login ou senha incorretos.");
-            await Entrar(ctx, login, dto.Lembrar);
+            await Entrar(ctx, login, (await s.CarimboAtualAsync(login, ct))!, dto.Lembrar);
             return Results.Ok(new SessaoUsuarioDto(true, true, login));
         }).AllowAnonymous().RequireRateLimiting(PoliticaLogin);
 
@@ -46,20 +46,42 @@ public static class EndpointsAcesso
             return Results.NoContent();
         }).AllowAnonymous();
 
-        acesso.MapPost("/senha", async (TrocarSenhaDto dto, AutenticacaoService s, CancellationToken ct) =>
+        acesso.MapPost("/senha", async (TrocarSenhaDto dto, HttpContext ctx, AutenticacaoService s, CancellationToken ct) =>
         {
             await s.TrocarSenhaAsync(dto, ct);
+            // a troca invalida as outras sessões; esta recebe o carimbo novo e continua
+            var login = ctx.User.Identity!.Name!;
+            await Entrar(ctx, login, (await s.CarimboAtualAsync(login, ct))!, lembrar: true);
             return Results.NoContent();
         }).RequireRateLimiting(PoliticaLogin);
     }
 
-    private static Task Entrar(HttpContext ctx, string login, bool lembrar)
+    public const string ClaimCarimbo = "extrato:carimbo";
+
+    private static Task Entrar(HttpContext ctx, string login, string carimbo, bool lembrar)
     {
         var identidade = new ClaimsIdentity(
-            [new Claim(ClaimTypes.Name, login), new Claim(ClaimTypes.NameIdentifier, "1")],
+            [new Claim(ClaimTypes.Name, login), new Claim(ClaimTypes.NameIdentifier, "1"), new Claim(ClaimCarimbo, carimbo)],
             CookieAuthenticationDefaults.AuthenticationScheme);
         return ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identidade),
             new AuthenticationProperties { IsPersistent = lembrar });
+    }
+
+    /// <summary>
+    /// Valida o cookie a cada requisição: a credencial precisa existir e o carimbo precisa bater
+    /// (senha trocada ou banco recriado derrubam as sessões antigas).
+    /// </summary>
+    public static async Task ValidarSessao(CookieValidatePrincipalContext ctx)
+    {
+        var login = ctx.Principal?.Identity?.Name;
+        var carimbo = ctx.Principal?.FindFirst(ClaimCarimbo)?.Value;
+        var servico = ctx.HttpContext.RequestServices.GetRequiredService<AutenticacaoService>();
+        var atual = login is null ? null : await servico.CarimboAtualAsync(login, ctx.HttpContext.RequestAborted);
+        if (atual is null || carimbo is null || !string.Equals(atual, carimbo, StringComparison.Ordinal))
+        {
+            ctx.RejectPrincipal();
+            await ctx.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        }
     }
 
     /// <summary>Primeiro acesso sem código só do próprio servidor (sem proxy no meio).</summary>

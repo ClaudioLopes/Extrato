@@ -98,6 +98,19 @@ public class AutenticacaoTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Carimbo_muda_quando_a_senha_muda_e_some_sem_credencial()
+    {
+        (await Servico().CarimboAtualAsync("eu.mesmo", default)).Should().BeNull("sem credencial nenhuma sessão vale");
+        await Configurar();
+        var antes = await Servico().CarimboAtualAsync("EU.MESMO", default);
+        antes.Should().NotBeNullOrEmpty();
+        (await Servico().CarimboAtualAsync("eu.mesmo", default)).Should().Be(antes, "estável enquanto a senha não muda");
+
+        await Servico().TrocarSenhaAsync(new TrocarSenhaDto { SenhaAtual = SenhaBoa, NovaSenha = "nova-senha-forte-9" }, default);
+        (await Servico().CarimboAtualAsync("eu.mesmo", default)).Should().NotBe(antes, "sessões antigas ficam inválidas");
+    }
+
+    [Fact]
     public void Hash_corrompido_nao_autentica_nem_quebra() =>
         new HasherSenhaPbkdf2().Verificar("isso-nao-e-um-hash", SenhaBoa, out _).Should().BeFalse();
 }

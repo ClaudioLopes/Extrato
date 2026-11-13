@@ -126,6 +126,8 @@ public class NovoItemRefeicaoDto
 
 public class NovaRefeicaoDto
 {
+    /// <summary>Gerado no aparelho; reenvios com o mesmo id devolvem a refeição já gravada.</summary>
+    public Guid? IdCliente { get; set; }
     public DateTime? DataHora { get; set; }
     public TipoRefeicao Tipo { get; set; }
     public OrigemRefeicao Origem { get; set; } = OrigemRefeicao.Manual;
@@ -351,3 +353,10 @@ public record AvaliacaoCorporalDto(
     bool FalhaIA,
     string? MensagemFalha,
     string Provedor);
+
+// ---------- Offline ----------
+
+/// <summary>Alimento com termos normalizados (nome + sinônimos) para a busca offline.</summary>
+public record AlimentoCatalogoDto(AlimentoDto Alimento, IReadOnlyList<string> Termos);
+
+public record CatalogoAlimentosDto(string Versao, IReadOnlyList<AlimentoCatalogoDto> Itens);

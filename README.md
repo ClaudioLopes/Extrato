@@ -108,6 +108,7 @@ Em qualquer provedor, falhas (limite de uso, timeout, JSON inválido, recusa) ab
 O app tem um usuário só, protegido por login e senha (hash PBKDF2 no banco, sessão em cookie
 `HttpOnly` + `SameSite=Strict`, válida por 30 dias). Toda a API exige login, exceto `/api/auth/*` e `/health`.
 O login tem limite de 5 tentativas por minuto por IP.
+A sessão é conferida a cada requisição: trocar a senha (ou recriar o banco) derruba as sessões antigas em outros aparelhos.
 
 **Primeiro acesso:** ao abrir o app pela primeira vez aparece a tela "Primeiro acesso" para criar login e senha.
 Por segurança ela só funciona:
@@ -123,9 +124,9 @@ Fora do modo de desenvolvimento o cookie exige HTTPS: publique atrás de um prox
 dotnet test
 ```
 
-151 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
+158 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
 redistribuição diária com piso, ajuste semanal (GET adaptativo, 2 semanas, 1×/semana), Epley, estagnação, dupla progressão,
-% de gordura (Marinha), busca por trigramas, integridade da TACO, ciclo treino/descanso, cardápio, relatórios, bloqueio da foto do corpo, sanitização de EXIF, escolha do provedor de IA, acesso (primeiro acesso, senha, login), fallback da IA e fluxos completos com EF InMemory.
+% de gordura (Marinha), busca por trigramas, integridade da TACO, ciclo treino/descanso, cardápio, relatórios, bloqueio da foto do corpo, modo offline (busca e painel locais iguais ao servidor, idempotência), sanitização de EXIF, escolha do provedor de IA, acesso (primeiro acesso, senha, login), fallback da IA e fluxos completos com EF InMemory.
 
 ## Fase 2
 
@@ -141,6 +142,19 @@ redistribuição diária com piso, ajuste semanal (GET adaptativo, 2 semanas, 1�
   Gemini grátis o botão fica bloqueado e a imagem nunca sai do servidor. Exige consentimento a cada envio, devolve
   uma faixa de % de gordura e observações em texto; só isso é salvo, junto com as medidas. As metas continuam
   usando peso e medidas.
+
+## Modo offline
+
+- **Abrir sem internet:** no app publicado (Docker ou `dotnet publish`), o service worker guarda os arquivos do app
+  e as fontes. Em desenvolvimento (`dotnet run`) o app ainda precisa do servidor para abrir.
+- **Ver sem internet:** painel do dia, perfil, regras, favoritos, progresso e o catálogo completo de alimentos ficam
+  salvos no aparelho. A busca offline usa a mesma pontuação do servidor (código compartilhado no domínio).
+- **Lançar sem internet:** refeição (manual, favorito) e peso entram numa fila; o painel recalcula saldo e alvos no
+  aparelho com o mesmo algoritmo do servidor. A fila é enviada quando a rede volta (evento do navegador, a cada 30 s
+  ou pelo botão "Enviar agora"). Cada lançamento leva um `IdCliente`: reenvios não duplicam.
+- **Precisam de internet:** fotos (IA), cardápio, relatórios, treino e alterações de perfil/regras/favoritos.
+- **Privacidade:** a API nunca passa pelo cache do service worker; os dados salvos no aparelho são apagados ao sair
+  (com confirmação se houver lançamentos não enviados).
 
 ## Tabela de alimentos (TACO completa)
 

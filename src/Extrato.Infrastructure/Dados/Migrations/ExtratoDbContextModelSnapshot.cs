@@ -498,6 +498,9 @@ namespace Extrato.Infrastructure.Dados.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid?>("IdCliente")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("Origem")
                         .HasColumnType("int");
 
@@ -510,6 +513,10 @@ namespace Extrato.Infrastructure.Dados.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("UsuarioId", "DataHora");
+
+                    b.HasIndex("UsuarioId", "IdCliente")
+                        .IsUnique()
+                        .HasFilter("[IdCliente] IS NOT NULL");
 
                     b.ToTable("Refeicao", (string)null);
                 });

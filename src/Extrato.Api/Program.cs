@@ -36,6 +36,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         // API: responde 401/403 em vez de redirecionar para uma página de login
         o.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = StatusCodes.Status401Unauthorized; return Task.CompletedTask; };
         o.Events.OnRedirectToAccessDenied = ctx => { ctx.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; };
+        o.Events.OnValidatePrincipal = EndpointsAcesso.ValidarSessao;
     });
 
 // Tudo exige login, exceto o que for marcado com AllowAnonymous.

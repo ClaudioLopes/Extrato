@@ -93,8 +93,16 @@ public class RefeicaoService(
     /// <summary>Grava a refeição confirmada. Macros sempre recalculados aqui a partir da tabela.</summary>
     public async Task<RefeicaoDto> CriarAsync(NovaRefeicaoDto dto, CancellationToken ct)
     {
+        if (dto.IdCliente is { } idCliente)
+        {
+            var existente = await db.Refeicoes.Include(r => r.Itens).ThenInclude(i => i.Alimento)
+                .FirstOrDefaultAsync(r => r.UsuarioId == usuario.UsuarioId && r.IdCliente == idCliente, ct);
+            if (existente is not null) return existente.ParaDto();
+        }
+
         var refeicao = new Refeicao
         {
+            IdCliente = dto.IdCliente,
             UsuarioId = usuario.UsuarioId,
             DataHora = dto.DataHora ?? relogio.Agora,
             Tipo = dto.Tipo,

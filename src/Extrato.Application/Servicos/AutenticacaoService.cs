@@ -110,6 +110,21 @@ public class AutenticacaoService(IAppDbContext db, IUsuarioAtual usuario, IHashe
             throw new ValidacaoException("Senha fraca demais: use caracteres variados.");
     }
 
+    /// <summary>
+    /// Carimbo da credencial guardado na sessão: muda quando a senha muda (o hash tem salt novo).
+    /// Sessões com carimbo antigo, ou de uma credencial que não existe mais, são recusadas.
+    /// </summary>
+    public static string Carimbo(string senhaHash) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(senhaHash)))[..20];
+
+    /// <summary>Carimbo atual do login, ou null se a credencial não existe.</summary>
+    public async Task<string?> CarimboAtualAsync(string login, CancellationToken ct)
+    {
+        var normalizado = (login ?? "").Trim().ToLowerInvariant();
+        var hash = await db.Credenciais.Where(c => c.Login == normalizado).Select(c => c.SenhaHash).FirstOrDefaultAsync(ct);
+        return hash is null ? null : Carimbo(hash);
+    }
+
     private static bool IguaisTempoConstante(string a, string b) =>
         CryptographicOperations.FixedTimeEquals(SHA256.HashData(Encoding.UTF8.GetBytes(a)), SHA256.HashData(Encoding.UTF8.GetBytes(b)));
 }

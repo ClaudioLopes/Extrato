@@ -52,6 +52,14 @@ public static class Endpoints
 
         api.MapGet("/alimentos", (string? busca, int? limite, AlimentoService s, CancellationToken ct) => s.BuscarAsync(busca, limite ?? 20, ct));
         api.MapPost("/alimentos", (NovoAlimentoDto dto, AlimentoService s, CancellationToken ct) => s.CriarAsync(dto, ct));
+        api.MapGet("/alimentos/catalogo", async (HttpContext ctx, AlimentoService s, CancellationToken ct) =>
+        {
+            var c = await s.CatalogoAsync(ct);
+            var etag = $"\"{c.Versao}\"";
+            if (ctx.Request.Headers.IfNoneMatch.ToString() == etag) return Results.StatusCode(StatusCodes.Status304NotModified);
+            ctx.Response.Headers.ETag = etag;
+            return Results.Ok(c);
+        });
         api.MapPost("/alimentos/importar", async (HttpRequest req, string? fonte, AlimentoService s, CancellationToken ct) =>
         {
             var f = Enum.TryParse<FonteAlimento>(fonte, true, out var x) ? x : FonteAlimento.Taco;

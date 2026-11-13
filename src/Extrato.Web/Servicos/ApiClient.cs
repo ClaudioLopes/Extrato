@@ -8,7 +8,10 @@ using Microsoft.AspNetCore.Components.Forms;
 
 namespace Extrato.Web.Servicos;
 
-public class ApiException(string mensagem) : Exception(mensagem);
+public class ApiException(string mensagem, int? status = null) : Exception(mensagem)
+{
+    public int? Status => status;
+}
 
 /// <summary>Estado da sessão compartilhado: o layout decide entre login, primeiro acesso e app.</summary>
 public class SessaoEstado
@@ -30,8 +33,9 @@ public class SessaoEstado
 }
 
 /// <summary>Cliente tipado da API. Erros viram ApiException com a mensagem do ProblemDetails.</summary>
-public class ApiClient(HttpClient http, SessaoEstado sessao)
+public class ApiClient(HttpClient http, SessaoEstado sessao, ArmazenamentoLocal local, RedeEstado rede)
 {
+    private bool _sincronizando;
     public const long TamanhoMaxFoto = 15 * 1024 * 1024;
     public const int LadoMaximoFoto = 1024;
 
@@ -55,34 +59,102 @@ public class ApiClient(HttpClient http, SessaoEstado sessao)
     };
 
     // Acesso
-    public Task<SessaoUsuarioDto> SessaoAsync() => Get<SessaoUsuarioDto>("api/auth/sessao");
-    public Task<SessaoUsuarioDto> LoginAsync(LoginDto dto) => Send<SessaoUsuarioDto>(HttpMethod.Post, "api/auth/login", dto);
-    public Task<SessaoUsuarioDto> ConfigurarAcessoAsync(ConfigurarAcessoDto dto) => Send<SessaoUsuarioDto>(HttpMethod.Post, "api/auth/configurar", dto);
+    /// <summary>Sem conexão, usa a última sessão conhecida para abrir o app no modo offline.</summary>
+    public Task<SessaoUsuarioDto> SessaoAsync() => GetSalvo<SessaoUsuarioDto>("api/auth/sessao", "sessao");
+    public async Task<SessaoUsuarioDto> LoginAsync(LoginDto dto) => await SalvarSessao(await Send<SessaoUsuarioDto>(HttpMethod.Post, "api/auth/login", dto));
+    public async Task<SessaoUsuarioDto> ConfigurarAcessoAsync(ConfigurarAcessoDto dto) => await SalvarSessao(await Send<SessaoUsuarioDto>(HttpMethod.Post, "api/auth/configurar", dto));
+
+    private async Task<SessaoUsuarioDto> SalvarSessao(SessaoUsuarioDto s)
+    {
+        await local.GravarAsync("sessao", new Salvo<SessaoUsuarioDto>(s, DateTime.Now));
+        return s;
+    }
+
+    /// <summary>Ao sair, apaga todos os dados salvos no aparelho (inclusive a fila).</summary>
+    public Task LimparDadosLocaisAsync() => local.LimparTudoAsync();
     public Task LogoutAsync() => Send<object>(HttpMethod.Post, "api/auth/logout", null);
     public Task TrocarSenhaAsync(TrocarSenhaDto dto) => Send<object>(HttpMethod.Post, "api/auth/senha", dto);
 
     // Perfil, regras e metas
-    public Task<PerfilDto> PerfilAsync() => Get<PerfilDto>("api/perfil");
+    public Task<PerfilDto> PerfilAsync() => GetSalvo<PerfilDto>("api/perfil", "perfil");
     public Task<PerfilDto> SalvarPerfilAsync(PerfilDto dto) => Send<PerfilDto>(HttpMethod.Put, "api/perfil", dto);
-    public Task<RegrasDto> RegrasAsync() => Get<RegrasDto>("api/regras");
+    public Task<RegrasDto> RegrasAsync() => GetSalvo<RegrasDto>("api/regras", "regras");
     public Task<RegrasDto> SalvarRegrasAsync(RegrasDto dto) => Send<RegrasDto>(HttpMethod.Put, "api/regras", dto);
-    public Task<MetaDto> MetaAtualAsync() => Get<MetaDto>("api/metas/atual");
+    public Task<MetaDto> MetaAtualAsync() => GetSalvo<MetaDto>("api/metas/atual", "meta");
     public Task<CalculoMetaDto> SimularMetaAsync() => Get<CalculoMetaDto>("api/metas/simular");
     public Task<CalculoMetaDto> RecalcularMetaAsync() => Send<CalculoMetaDto>(HttpMethod.Post, "api/metas/recalcular", null);
     public Task<MetaDto> MetaManualAsync(MetaManualDto dto) => Send<MetaDto>(HttpMethod.Put, "api/metas/atual", dto);
     public Task<AjusteSemanalDto> AjusteSemanalAsync() => Send<AjusteSemanalDto>(HttpMethod.Post, "api/metas/ajuste-semanal", null);
 
     // Refeições, alimentos e favoritos
-    public Task<PainelDiaDto> PainelAsync(DateOnly data) => Get<PainelDiaDto>($"api/painel/dia?data={data:yyyy-MM-dd}");
-    public Task<RefeicaoDto> CriarRefeicaoAsync(NovaRefeicaoDto dto) => Send<RefeicaoDto>(HttpMethod.Post, "api/refeicoes", dto);
+    /// <summary>Online: do servidor (e salva). Offline: último painel salvo do dia + fila, recalculado no aparelho.</summary>
+    public async Task<PainelDiaDto> PainelAsync(DateOnly data)
+    {
+        var chave = $"painel:{data:yyyy-MM-dd}";
+        try
+        {
+            var p = await Get<PainelDiaDto>($"api/painel/dia?data={data:yyyy-MM-dd}");
+            await local.GravarAsync(chave, new Salvo<PainelDiaDto>(p, DateTime.Now));
+            return p;
+        }
+        catch (SemConexaoException)
+        {
+            var salvo = await local.LerAsync<Salvo<PainelDiaDto>>(chave)
+                ?? throw new ApiException("Sem conexão e sem dados salvos deste dia. Abra o painel com internet ao menos uma vez.");
+            var regras = await local.LerAsync<Salvo<RegrasDto>>("regras");
+            var previas = (await LerFila()).Where(f => f.Previa != null).Select(f => f.Previa!);
+            return PainelLocal.Combinar(salvo.Valor, previas, regras?.Valor, DateTime.Now, salvo.SalvoEm);
+        }
+    }
+
+    /// <summary>Offline (ou se a rede cair no envio), a refeição vai para a fila e é enviada depois.</summary>
+    public async Task<RefeicaoDto> CriarRefeicaoAsync(NovaRefeicaoDto dto)
+    {
+        dto.IdCliente ??= Guid.NewGuid();
+        dto.DataHora ??= DateTime.Now; // hora do lançamento, não a do envio
+        if (rede.Online)
+        {
+            try { return await Send<RefeicaoDto>(HttpMethod.Post, "api/refeicoes", dto); }
+            catch (SemConexaoException) { }
+        }
+        var previa = PainelLocal.RefeicaoLocal(dto, await CatalogoPorIdAsync(), DateTime.Now);
+        await Enfileirar(new Pendente(dto.IdCliente.Value, TipoPendente.Refeicao, DateTime.Now, dto, null, previa));
+        return previa;
+    }
     public Task RemoverRefeicaoAsync(int id) => Send<object>(HttpMethod.Delete, $"api/refeicoes/{id}", null);
-    public Task<List<AlimentoDto>> BuscarAlimentosAsync(string? busca, int limite = 15) =>
-        Get<List<AlimentoDto>>($"api/alimentos?busca={Uri.EscapeDataString(busca ?? "")}&limite={limite}");
-    public Task<AlimentoDto> CriarAlimentoAsync(NovoAlimentoDto dto) => Send<AlimentoDto>(HttpMethod.Post, "api/alimentos", dto);
-    public Task<List<FavoritoDto>> FavoritosAsync() => Get<List<FavoritoDto>>("api/favoritos");
+    /// <summary>Offline, busca no catálogo salvo com a mesma pontuação do servidor.</summary>
+    public async Task<List<AlimentoDto>> BuscarAlimentosAsync(string? busca, int limite = 15)
+    {
+        if (rede.Online)
+        {
+            try { return await Get<List<AlimentoDto>>($"api/alimentos?busca={Uri.EscapeDataString(busca ?? "")}&limite={limite}"); }
+            catch (SemConexaoException) { }
+        }
+        var catalogo = await local.LerAsync<CatalogoAlimentosDto>("catalogo");
+        return catalogo is null ? [] : PainelLocal.Buscar(catalogo.Itens, busca ?? "", limite);
+    }
+
+    public async Task<AlimentoDto> CriarAlimentoAsync(NovoAlimentoDto dto)
+    {
+        var a = await Send<AlimentoDto>(HttpMethod.Post, "api/alimentos", dto);
+        await AtualizarCatalogoAsync();
+        return a;
+    }
+
+    public Task<List<FavoritoDto>> FavoritosAsync() => GetSalvo<List<FavoritoDto>>("api/favoritos", "favoritos");
     public Task<FavoritoDto> CriarFavoritoAsync(NovoFavoritoDto dto) => Send<FavoritoDto>(HttpMethod.Post, "api/favoritos", dto);
     public Task RemoverFavoritoAsync(int id) => Send<object>(HttpMethod.Delete, $"api/favoritos/{id}", null);
-    public Task<RefeicaoDto> RegistrarFavoritoAsync(int id, TipoRefeicao tipo) => Send<RefeicaoDto>(HttpMethod.Post, $"api/favoritos/{id}/registrar?tipo={tipo}", null);
+    public async Task<RefeicaoDto> RegistrarFavoritoAsync(int id, TipoRefeicao tipo)
+    {
+        // vira uma refeição comum com IdCliente: funciona igual online e offline
+        var favoritos = await FavoritosAsync();
+        var f = favoritos.FirstOrDefault(x => x.Id == id) ?? throw new ApiException("Favorito não encontrado.");
+        return await CriarRefeicaoAsync(new NovaRefeicaoDto
+        {
+            Tipo = tipo, Origem = OrigemRefeicao.Favorito, Descricao = f.Nome,
+            Itens = f.Itens.Select(i => new NovoItemRefeicaoDto { AlimentoId = i.AlimentoId, Gramas = i.Gramas }).ToList()
+        });
+    }
     public async Task<string> ProvedorVisaoAsync() => (await Get<JsonElement>("api/visao/provedor")).GetProperty("nome").GetString() ?? "";
 
     public async Task<RascunhoRefeicaoDto> AnalisarFotoAsync(IBrowserFile foto, TipoRefeicao tipo, string? descricao)
@@ -114,9 +186,19 @@ public class ApiClient(HttpClient http, SessaoEstado sessao)
     }
 
     // Peso, medidas, progresso
-    public Task<PontoPesoDto> RegistrarPesoAsync(NovoPesoDto dto) => Send<PontoPesoDto>(HttpMethod.Post, "api/peso", dto);
+    public async Task<PontoPesoDto> RegistrarPesoAsync(NovoPesoDto dto)
+    {
+        dto.Data ??= DateOnly.FromDateTime(DateTime.Now);
+        if (rede.Online)
+        {
+            try { return await Send<PontoPesoDto>(HttpMethod.Post, "api/peso", dto); }
+            catch (SemConexaoException) { }
+        }
+        await Enfileirar(new Pendente(Guid.NewGuid(), TipoPendente.Peso, DateTime.Now, null, dto, null));
+        return new PontoPesoDto(dto.Data.Value, dto.PesoKg, null);
+    }
     public Task<MedidaDto> RegistrarMedidasAsync(NovasMedidasDto dto) => Send<MedidaDto>(HttpMethod.Post, "api/medidas", dto);
-    public Task<ProgressoDto> ProgressoAsync(DateOnly de, DateOnly ate) => Get<ProgressoDto>($"api/progresso?de={de:yyyy-MM-dd}&ate={ate:yyyy-MM-dd}");
+    public Task<ProgressoDto> ProgressoAsync(DateOnly de, DateOnly ate) => GetSalvo<ProgressoDto>($"api/progresso?de={de:yyyy-MM-dd}&ate={ate:yyyy-MM-dd}", "progresso");
 
     // Treino
     public Task<List<AcademiaDto>> AcademiasAsync() => Get<List<AcademiaDto>>("api/academias");
@@ -142,14 +224,148 @@ public class ApiClient(HttpClient http, SessaoEstado sessao)
 
     // ---------- infraestrutura ----------
 
-    private async Task<T> Get<T>(string url) => await Ler<T>(await http.GetAsync(url));
+    private Task<T> Get<T>(string url) => Enviar<T>(new HttpRequestMessage(HttpMethod.Get, url));
 
-    private async Task<T> Send<T>(HttpMethod metodo, string url, object? corpo)
+    private Task<T> Send<T>(HttpMethod metodo, string url, object? corpo)
     {
-        using var req = new HttpRequestMessage(metodo, url);
+        var req = new HttpRequestMessage(metodo, url);
         if (corpo != null) req.Content = JsonContent.Create(corpo, corpo.GetType(), options: Json);
-        return await Ler<T>(await http.SendAsync(req));
+        return Enviar<T>(req);
     }
+
+    /// <summary>Falha de rede vira SemConexaoException e marca o app como offline; resposta marca online.</summary>
+    private async Task<T> Enviar<T>(HttpRequestMessage req)
+    {
+        HttpResponseMessage resp;
+        using (req)
+        {
+            try { resp = await http.SendAsync(req); }
+            catch (HttpRequestException) { rede.DefinirOnline(false); throw new SemConexaoException(); }
+            catch (TaskCanceledException) { rede.DefinirOnline(false); throw new SemConexaoException(); }
+        }
+        rede.DefinirOnline(true);
+        return await Ler<T>(resp);
+    }
+
+    /// <summary>GET que salva a resposta no aparelho e, sem conexão, devolve a última versão salva.</summary>
+    private async Task<T> GetSalvo<T>(string url, string chave)
+    {
+        try
+        {
+            var v = await Get<T>(url);
+            await local.GravarAsync(chave, new Salvo<T>(v, DateTime.Now));
+            return v;
+        }
+        catch (SemConexaoException)
+        {
+            var salvo = await local.LerAsync<Salvo<T>>(chave);
+            if (salvo is not null) return salvo.Valor;
+            throw new ApiException("Sem conexão e sem dados salvos desta tela.");
+        }
+    }
+
+    // ---------- offline: catálogo, fila e sincronização ----------
+
+    /// <summary>Baixa o catálogo de alimentos só quando mudou (ETag).</summary>
+    public async Task AtualizarCatalogoAsync()
+    {
+        var atual = await local.LerAsync<CatalogoAlimentosDto>("catalogo");
+        using var req = new HttpRequestMessage(HttpMethod.Get, "api/alimentos/catalogo");
+        if (atual is not null) req.Headers.TryAddWithoutValidation("If-None-Match", $"\"{atual.Versao}\"");
+        HttpResponseMessage resp;
+        try { resp = await http.SendAsync(req); }
+        catch (HttpRequestException) { rede.DefinirOnline(false); return; }
+        using (resp)
+        {
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotModified || !resp.IsSuccessStatusCode) return;
+            var novo = await resp.Content.ReadFromJsonAsync<CatalogoAlimentosDto>(Json);
+            if (novo is not null) await local.GravarAsync("catalogo", novo);
+        }
+    }
+
+    /// <summary>Com conexão, deixa salvo o que o modo offline precisa (catálogo, regras, favoritos, perfil).</summary>
+    public async Task PrepararOfflineAsync()
+    {
+        await AtualizarCatalogoAsync();
+        foreach (var carregar in new Func<Task>[] { RegrasAsync, FavoritosAsync, PerfilAsync })
+        {
+            try { await carregar(); } catch (ApiException) { /* tenta de novo na próxima abertura */ }
+        }
+    }
+
+    private async Task<Dictionary<int, AlimentoDto>> CatalogoPorIdAsync()
+    {
+        var catalogo = await local.LerAsync<CatalogoAlimentosDto>("catalogo");
+        var mapa = catalogo?.Itens.ToDictionary(i => i.Alimento.Id, i => i.Alimento) ?? [];
+        // favoritos salvos completam o que faltar (macros por 100 g a partir da porção)
+        var favoritos = await local.LerAsync<Salvo<List<FavoritoDto>>>("favoritos");
+        foreach (var item in favoritos?.Valor.SelectMany(f => f.Itens) ?? [])
+            if (!mapa.ContainsKey(item.AlimentoId) && item.Gramas > 0)
+            {
+                var f = 100m / item.Gramas;
+                mapa[item.AlimentoId] = new AlimentoDto(item.AlimentoId, item.Alimento, FonteAlimento.Taco,
+                    item.Macros.Kcal * f, item.Macros.ProteinaG * f, item.Macros.CarboG * f, item.Macros.GorduraG * f, null);
+            }
+        return mapa;
+    }
+
+    public async Task<List<Pendente>> LerFila() => await local.LerAsync<List<Pendente>>("fila") ?? [];
+
+    private async Task Enfileirar(Pendente p)
+    {
+        var fila = await LerFila();
+        if (fila.All(f => f.Id != p.Id)) fila.Add(p);
+        if (!await local.GravarAsync("fila", fila))
+            throw new ApiException("Sem conexão e não foi possível salvar no aparelho (armazenamento cheio ou bloqueado).");
+        rede.DefinirPendentes(fila.Count);
+    }
+
+    /// <summary>
+    /// Envia a fila em ordem. Para na primeira falha de rede ou sessão expirada (tenta de novo depois);
+    /// erro 5xx também espera; erro de validação (4xx) descarta o item e avisa o usuário.
+    /// </summary>
+    public async Task<int> SincronizarAsync()
+    {
+        if (_sincronizando) return 0;
+        _sincronizando = true;
+        var fila = await LerFila();
+        var enviados = 0;
+        try
+        {
+            if (fila.Count == 0) return 0;
+            rede.DefinirPendentes(fila.Count, sincronizando: true);
+            foreach (var p in fila.OrderBy(f => f.CriadoEm).ToList())
+            {
+                try
+                {
+                    if (p.Tipo == TipoPendente.Refeicao) await Send<RefeicaoDto>(HttpMethod.Post, "api/refeicoes", p.Refeicao);
+                    else await Send<PontoPesoDto>(HttpMethod.Post, "api/peso", p.Peso);
+                    fila.Remove(p);
+                    enviados++;
+                }
+                catch (SemConexaoException) { break; }
+                catch (SessaoExpiradaException) { break; }
+                catch (ApiException ex) when (ex.Status is null or >= 500 or 429) { break; }
+                catch (ApiException ex)
+                {
+                    fila.Remove(p);
+                    rede.Rejeitar($"{Descrever(p)} não foi aceito pelo servidor: {ex.Message}");
+                }
+                await local.GravarAsync("fila", fila);
+            }
+        }
+        finally
+        {
+            _sincronizando = false;
+            rede.DefinirPendentes(fila.Count);
+        }
+        if (enviados > 0) rede.AvisarSincronizou();
+        return enviados;
+    }
+
+    private static string Descrever(Pendente p) => p.Tipo == TipoPendente.Peso
+        ? $"Peso de {p.Peso!.Data:dd/MM}"
+        : $"{p.Refeicao!.Tipo.Nome()} de {p.CriadoEm:dd/MM HH:mm}";
 
     private async Task<T> Ler<T>(HttpResponseMessage resp)
     {
@@ -158,16 +374,16 @@ public class ApiClient(HttpClient http, SessaoEstado sessao)
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && !resp.RequestMessage!.RequestUri!.AbsolutePath.Contains("/api/auth/"))
             {
                 sessao.Expirou();
-                throw new ApiException("Sessão expirada. Entre novamente.");
+                throw new SessaoExpiradaException();
             }
             if (resp.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-                throw new ApiException("Muitas tentativas. Aguarde um minuto e tente de novo.");
+                throw new ApiException("Muitas tentativas. Aguarde um minuto e tente de novo.", 429);
             if (resp.IsSuccessStatusCode)
             {
                 if (resp.StatusCode == System.Net.HttpStatusCode.NoContent || typeof(T) == typeof(object)) return default!;
                 return (await resp.Content.ReadFromJsonAsync<T>(Json))!;
             }
-            throw new ApiException(await MensagemErro(resp));
+            throw new ApiException(await MensagemErro(resp), (int)resp.StatusCode);
         }
     }
 

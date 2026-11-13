@@ -1,7 +1,9 @@
 ﻿@inherits LayoutComponentBase
-@implements IDisposable
+@implements IAsyncDisposable
 @inject SessaoEstado Sessao
+@inject RedeEstado Rede
 @inject ApiClient Api
+@inject IJSRuntime JS
 
 @if (Sessao.Atual is null)
 {
@@ -38,6 +40,28 @@ else
         </aside>
 
         <main class="conteudo">
+            @if (!Rede.Online)
+            {
+                <div class="faixa-rede offline" role="status">
+                    <strong>Sem conexão.</strong> Mostrando dados salvos no aparelho.
+                    @if (Rede.Pendentes > 0) { <span>@Rede.Pendentes lançamento(s) serão enviados quando a conexão voltar.</span> }
+                    <button class="btn mini" @onclick="TentarAgora">Tentar agora</button>
+                </div>
+            }
+            else if (Rede.Pendentes > 0)
+            {
+                <div class="faixa-rede" role="status">
+                    @(Rede.Sincronizando ? $"Enviando {Rede.Pendentes} lançamento(s)…" : $"{Rede.Pendentes} lançamento(s) aguardando envio.")
+                    @if (!Rede.Sincronizando) { <button class="btn mini" @onclick="TentarAgora">Enviar agora</button> }
+                </div>
+            }
+            @if (Rede.Rejeitados.Count > 0)
+            {
+                <div class="erro" role="alert">
+                    @foreach (var r in Rede.Rejeitados) { <div>@r</div> }
+                    <button class="btn mini" style="margin-top:6px" @onclick="Rede.LimparRejeitados">Entendi</button>
+                </div>
+            }
             @Body
         </main>
 
@@ -61,27 +85,103 @@ else
     ];
 
     private string? _erro;
+    private DotNetObjectReference<MainLayout>? _ref;
+    private Timer? _timer;
+    private bool _autenticadoAntes;
 
     protected override async Task OnInitializedAsync()
     {
-        Sessao.Mudou += AoMudar;
+        Sessao.Mudou += AoMudarSessao;
+        Rede.Mudou += AoMudar;
         await Carregar();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _ref = DotNetObjectReference.Create(this);
+        try { await JS.InvokeVoidAsync("extrato.observarRede", _ref); } catch (JSException) { }
+        // reenvio periódico da fila, para redes que voltam sem disparar o evento "online"
+        _timer = new Timer(_ => InvokeAsync(SincronizarSePreciso), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
     }
 
     private async Task Carregar()
     {
         _erro = null;
-        try { Sessao.Definir(await Api.SessaoAsync()); }
-        catch (Exception) { _erro = "Não foi possível falar com o servidor."; }
+        try
+        {
+            Sessao.Definir(await Api.SessaoAsync());
+        }
+        catch (ApiException)
+        {
+            _erro = "Não foi possível falar com o servidor, e não há sessão salva neste aparelho.";
+        }
+    }
+
+    [JSInvokable]
+    public async Task RedeMudou(bool online)
+    {
+        if (!online) { Rede.DefinirOnline(false); return; }
+        await TentarAgora();
+    }
+
+    private async Task TentarAgora()
+    {
+        try
+        {
+            var s = await Api.SessaoAsync(); // também confirma se o cookie ainda vale
+            if (Rede.Online && s.Autenticado) await Api.SincronizarAsync();
+            else if (Rede.Online) Sessao.Definir(s);
+        }
+        catch (ApiException) { }
+    }
+
+    private async Task SincronizarSePreciso()
+    {
+        if (Sessao.Atual is not { Autenticado: true }) return;
+        if (Rede.Pendentes > 0 || !Rede.Online) await TentarAgora();
+    }
+
+    private async void AoMudarSessao()
+    {
+        await InvokeAsync(StateHasChanged);
+        var autenticado = Sessao.Atual is { Autenticado: true };
+        if (autenticado && !_autenticadoAntes && Rede.Online)
+        {
+            // entrou (ou voltou a entrar): prepara o modo offline e envia o que ficou na fila
+            Rede.DefinirPendentes((await Api.LerFila()).Count);
+            await Api.PrepararOfflineAsync();
+            await Api.SincronizarAsync();
+        }
+        else if (autenticado && !Rede.Online)
+        {
+            Rede.DefinirPendentes((await Api.LerFila()).Count);
+        }
+        _autenticadoAntes = autenticado;
     }
 
     private async Task Sair()
     {
-        try { await Api.LogoutAsync(); } catch (Exception) { }
+        var pendentes = (await Api.LerFila()).Count;
+        if (pendentes > 0)
+        {
+            var ok = await JS.InvokeAsync<bool>("extrato.confirmar",
+                $"Há {pendentes} lançamento(s) ainda não enviados. Sair apaga os dados deste aparelho e eles serão perdidos. Sair mesmo assim?");
+            if (!ok) return;
+        }
+        try { await Api.LogoutAsync(); } catch (ApiException) { }
+        await Api.LimparDadosLocaisAsync();
+        Rede.DefinirPendentes(0);
         Sessao.Definir(Sessao.Atual! with { Autenticado = false, Login = null });
     }
 
     private void AoMudar() => InvokeAsync(StateHasChanged);
 
-    public void Dispose() => Sessao.Mudou -= AoMudar;
+    public async ValueTask DisposeAsync()
+    {
+        Sessao.Mudou -= AoMudarSessao;
+        Rede.Mudou -= AoMudar;
+        if (_timer is not null) await _timer.DisposeAsync();
+        _ref?.Dispose();
+    }
 }
