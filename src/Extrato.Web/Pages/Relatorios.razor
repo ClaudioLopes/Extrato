@@ -1,0 +1,108 @@
+@page "/relatorios"
+@inject ApiClient Api
+
+<PageTitle>extrato · relatórios</PageTitle>
+
+<div class="topo">
+    <div>
+        <h1>Relatórios</h1>
+        <p class="subtitulo">@(_r is null ? "" : $"{_r.De:dd/MM} a {_r.Ate:dd/MM/yyyy}")</p>
+    </div>
+    <div class="abas" style="margin:0;min-width:220px">
+        <button class="@(_periodo == "semana" ? "ativa" : "")" @onclick='() => Mudar("semana")'>Semana</button>
+        <button class="@(_periodo == "mes" ? "ativa" : "")" @onclick='() => Mudar("mes")'>Mês</button>
+    </div>
+</div>
+
+@if (_erro != null) { <div class="erro">@_erro</div> }
+@if (_r is null && _erro is null) { <p class="suave">Carregando…</p> }
+@if (_r != null)
+{
+    <div class="grade-4">
+        <div class="cartao"><div class="suave pequeno">Dias registrados</div><div class="saldo-grande numero" style="font-size:1.8rem">@_r.DiasRegistrados<span class="unid">/@_r.Dias.Count</span></div></div>
+        <div class="cartao"><div class="suave pequeno">Calorias na meta (±10%)</div><div class="saldo-grande numero" style="font-size:1.8rem">@_r.DiasNaMetaKcal<span class="unid"> dias</span></div></div>
+        <div class="cartao"><div class="suave pequeno">Proteína atingida</div><div class="saldo-grande numero" style="font-size:1.8rem">@_r.DiasProteinaAtingida<span class="unid"> dias</span></div></div>
+        <div class="cartao"><div class="suave pequeno">Treinos</div><div class="saldo-grande numero" style="font-size:1.8rem">@_r.SessoesTreino<span class="unid"> · @_r.VolumeTreino.ToString("N0") kg</span></div></div>
+    </div>
+
+    <section class="cartao">
+        <h2>Resumo</h2>
+        <ul style="margin:0;padding-left:18px">
+            @foreach (var d in _r.Destaques) { <li>@d</li> }
+        </ul>
+    </section>
+
+    <section class="cartao">
+        <h2>Calorias por dia</h2>
+        @{ var max = Math.Max(1, _r.Dias.Max(d => Math.Max(d.Consumido.Kcal, d.Meta.Kcal))); }
+        <div class="colunas" role="img" aria-label="Calorias consumidas por dia contra a meta">
+            @foreach (var d in _r.Dias)
+            {
+                var acima = d.Meta.Kcal > 0 && d.Consumido.Kcal > d.Meta.Kcal * 1.1m;
+                <div class="col" title="@($"{d.Data:dd/MM}: {d.Consumido.Kcal:0} de {d.Meta.Kcal:0} kcal{(d.DiaDeTreino ? " · treino" : "")}")">
+                    @if (d.Meta.Kcal > 0) { <div class="meta" style="bottom:calc(@Pct(d.Meta.Kcal, max)% + 14px)"></div> }
+                    <div class="b @(d.Registrado ? (acima ? "acima" : "") : "vazio")" style="height:@(d.Registrado ? Pct(d.Consumido.Kcal, max) : "3")%"></div>
+                    @if (_r.Dias.Count <= 7 || d.Data.Day % 5 == 0 || d.Data == _r.Ate) { <small>@d.Data.ToString(_r.Dias.Count <= 7 ? "ddd" : "dd")</small> } else { <small>&nbsp;</small> }
+                </div>
+            }
+        </div>
+        <p class="suave pequeno"><span class="ponto c-kcal"></span>consumido · <span class="ponto c-gord"></span>acima de 10% · tracejado = meta do dia</p>
+        <table style="margin-top:8px">
+            <thead><tr><th></th><th>kcal</th><th>Proteína</th><th>Carbo</th><th>Gordura</th></tr></thead>
+            <tbody>
+                <tr><td>Média consumida</td><td class="numero">@_r.MediaConsumida.Kcal.ToString("0")</td><td class="numero">@_r.MediaConsumida.ProteinaG.ToString("0")</td><td class="numero">@_r.MediaConsumida.CarboG.ToString("0")</td><td class="numero">@_r.MediaConsumida.GorduraG.ToString("0")</td></tr>
+                <tr><td>Média da meta</td><td class="numero">@_r.MediaMeta.Kcal.ToString("0")</td><td class="numero">@_r.MediaMeta.ProteinaG.ToString("0")</td><td class="numero">@_r.MediaMeta.CarboG.ToString("0")</td><td class="numero">@_r.MediaMeta.GorduraG.ToString("0")</td></tr>
+            </tbody>
+        </table>
+        <p class="suave pequeno">Médias só dos dias com refeições registradas.</p>
+    </section>
+
+    <div class="grade">
+        <section class="cartao">
+            <h2>Corpo</h2>
+            <p>Peso (média 7 dias): <strong class="numero">@(_r.PesoInicioMedia7d?.ToString("0.0") ?? "—") → @(_r.PesoFimMedia7d?.ToString("0.0") ?? "—") kg</strong></p>
+            <p>Cintura: <strong class="numero">@(_r.VariacaoCinturaCm is { } c ? $"{c:+0.0;−0.0;0.0} cm" : "sem medidas suficientes")</strong></p>
+        </section>
+        <section class="cartao">
+            <h2>Treino</h2>
+            @if (_r.Recordes.Count == 0) { <p class="suave">Nenhum recorde novo no período.</p> }
+            @foreach (var rec in _r.Recordes) { <div class="ok">🏆 @rec</div> }
+        </section>
+    </div>
+
+    @if (_r.Ajustes.Count > 0)
+    {
+        <section class="cartao">
+            <h2>Ajustes da meta</h2>
+            @foreach (var a in _r.Ajustes)
+            {
+                <div class="lancamento"><div class="cresce"><strong>@a.Data.ToString("dd/MM")</strong> <span class="numero">@a.KcalAnterior → @a.KcalNova kcal</span><div class="suave pequeno">@a.Motivo</div></div></div>
+            }
+        </section>
+    }
+}
+
+@code {
+    private string _periodo = "semana";
+    private RelatorioDto? _r;
+    private string? _erro;
+
+    protected override Task OnInitializedAsync() => Carregar();
+
+    private async Task Mudar(string periodo)
+    {
+        _periodo = periodo;
+        _r = null;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        _erro = null;
+        try { _r = await Api.RelatorioAsync(_periodo, DateOnly.FromDateTime(DateTime.Now)); }
+        catch (Exception ex) { _erro = ex.Message; }
+    }
+
+    private static string Pct(decimal v, decimal max) =>
+        Math.Clamp(v / max * 85m, 0, 85).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+}

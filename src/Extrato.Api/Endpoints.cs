@@ -66,6 +66,29 @@ public static class Endpoints
         api.MapPost("/favoritos/{id:int}/registrar", (int id, TipoRefeicao tipo, FavoritoService s, CancellationToken ct) => s.RegistrarAsync(id, tipo, ct));
 
         api.MapGet("/painel/dia", (DateOnly? data, PainelService s, CancellationToken ct) => s.DiaAsync(data, ct));
+        api.MapGet("/cardapio", (TipoRefeicao tipo, DateOnly? data, CardapioService s, CancellationToken ct) => s.SugerirAsync(tipo, data, ct));
+        api.MapGet("/relatorios", (string? periodo, DateOnly? ate, RelatorioService s, CancellationToken ct) => s.GerarAsync(periodo ?? "semana", ate, ct));
+
+        // foto do corpo: mesmo cuidado da foto do prato (stream em memória, nada gravado) e só com provedor pago/local
+        api.MapPost("/medidas/analisar-foto", async (HttpRequest req, AvaliacaoCorporalService s, CancellationToken ct) =>
+        {
+            string? descricao = null;
+            var consentiu = false;
+            AvaliacaoCorporalDto? r = null;
+            await LerMultipartAsync(req, ct,
+                (campo, valor) =>
+                {
+                    if (campo == "descricao") descricao = valor;
+                    if (campo == "consentimento") consentiu = valor is "true" or "on" or "1";
+                },
+                async stream =>
+                {
+                    if (!consentiu) throw new ValidacaoException("Confirme o consentimento antes de enviar a foto (campo 'consentimento' antes da imagem).");
+                    r = await s.AnalisarAsync(stream, descricao, ct);
+                });
+            return r ?? throw new ValidacaoException("Imagem não enviada.");
+        }).DisableAntiforgery();
+        api.MapGet("/medidas/foto-permitida", (AvaliacaoCorporalService s) => s.Situacao());
 
         api.MapPost("/peso", (NovoPesoDto dto, ProgressoService s, CancellationToken ct) => s.RegistrarPesoAsync(dto, ct));
         api.MapPost("/medidas", (NovasMedidasDto dto, ProgressoService s, CancellationToken ct) => s.RegistrarMedidasAsync(dto, ct));

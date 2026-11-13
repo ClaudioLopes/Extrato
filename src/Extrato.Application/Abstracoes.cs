@@ -45,11 +45,23 @@ public record ItemIdentificado(string Nome, string? Preparo, decimal Gramas, dec
 
 public record AnalisePratoResultado(IReadOnlyList<ItemIdentificado> Itens, IReadOnlyList<string> Alertas);
 
+/// <summary>Fase 2: estimativa visual de % de gordura (faixa) e observações em texto. Nunca guarda a imagem.</summary>
+public record AnaliseCorpoResultado(decimal? GorduraMinPercent, decimal? GorduraMaxPercent, string? Observacoes, IReadOnlyList<string> Alertas);
+
 public record AnaliseAparelhoResultado(string? Exercicio, string? GrupoMuscular, string? TipoCarga, bool HaPessoas, IReadOnlyList<string> Alertas);
 
 public interface IVisionProvider
 {
     string Nome { get; }
+
+    /// <summary>
+    /// Seção 2.1: true só para provedor pago (termos sem uso dos dados para treino) ou local.
+    /// O tier grátis do Gemini é false: foto do corpo nunca é enviada a ele.
+    /// </summary>
+    bool AceitaDadosSensiveis { get; }
+
+    Task<AnaliseCorpoResultado> AnalisarCorpoAsync(
+        Stream imagem, string? descricao, Sexo sexo, CancellationToken ct);
 
     Task<AnalisePratoResultado> AnalisarPratoAsync(
         Stream imagem, string? descricao, TipoRefeicao tipo, CancellationToken ct);

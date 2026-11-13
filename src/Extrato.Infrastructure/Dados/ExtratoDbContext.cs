@@ -55,6 +55,10 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
             e.Property(x => x.FatorAtividade).HasPrecision(5, 3);
             e.Property(x => x.PisoRefeicao).HasPrecision(4, 2);
             // PesosRefeicao e Travas em JSON (nvarchar), como no modelo da doc
+            e.Property(x => x.DiasTreino).HasMaxLength(40).HasConversion(
+                v => string.Join(",", v.Select(d => (int)d)),
+                v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => (DayOfWeek)int.Parse(x)).ToList(),
+                new ValueComparer<List<DayOfWeek>>((a, c) => a!.SequenceEqual(c!), v => v.Aggregate(0, (h, d) => h * 7 + (int)d), v => v.ToList()));
             e.Property(x => x.PesosRefeicao).HasMaxLength(400).HasConversion(
                 v => JsonSerializer.Serialize(v, Json),
                 v => JsonSerializer.Deserialize<PesosRefeicao>(v, Json) ?? PesosRefeicao.Padrao,
@@ -149,6 +153,8 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
         {
             e.ToTable("Medidas");
             e.Property(x => x.ObservacaoCorporal).HasMaxLength(1000);
+            e.Property(x => x.GorduraFotoMinPercent).HasPrecision(4, 1);
+            e.Property(x => x.GorduraFotoMaxPercent).HasPrecision(4, 1);
             e.HasIndex(x => new { x.UsuarioId, x.Data });
             e.HasOne<Usuario>().WithMany().HasForeignKey(x => x.UsuarioId);
         });

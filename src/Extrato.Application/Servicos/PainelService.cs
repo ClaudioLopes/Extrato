@@ -11,14 +11,14 @@ public class PainelService(IRelogio relogio, MetaService metas, PerfilService pe
     public async Task<PainelDiaDto> DiaAsync(DateOnly? data, CancellationToken ct)
     {
         var dia = data ?? relogio.Hoje;
-        var meta = await metas.VigenteEmAsync(dia, ct) ?? throw new NaoEncontradoException("Calcule a meta antes de usar o painel.");
+        var metaDia = await metas.MetaDoDiaAsync(dia, ct) ?? throw new NaoEncontradoException("Calcule a meta antes de usar o painel.");
         var regras = await perfil.ObterRegrasAsync(ct);
         var lancamentos = await refeicoes.DoDiaAsync(dia, ct);
 
         var consumidoPorTipo = lancamentos.GroupBy(r => r.Tipo)
             .ToDictionary(g => g.Key, g => Macros.Somar(g.Select(r => r.Total())));
         var consumido = Macros.Somar(consumidoPorTipo.Values);
-        var metaMacros = meta.ComoMacros();
+        var metaMacros = metaDia.Macros;
         var alvos = DistribuidorRefeicoes.Distribuir(metaMacros, regras.PesosRefeicao, consumidoPorTipo, regras.PisoRefeicao);
 
         var favs = await favoritos.TodosAsync(ct);
@@ -29,15 +29,15 @@ public class PainelService(IRelogio relogio, MetaService metas, PerfilService pe
         var alertas = new List<string>();
         var restante = metaMacros - consumido;
         var agora = dia == relogio.Hoje ? TimeOnly.FromDateTime(relogio.Agora) : new TimeOnly(23, 59);
-        if (DistribuidorRefeicoes.ProteinaAtrasada(meta.ProteinaG, consumido.ProteinaG, agora, regras.HoraAlertaProteina))
-            alertas.Add($"Proteína atrasada: {consumido.ProteinaG:0} g de {meta.ProteinaG:0} g até agora.");
+        if (DistribuidorRefeicoes.ProteinaAtrasada(metaMacros.ProteinaG, consumido.ProteinaG, agora, regras.HoraAlertaProteina))
+            alertas.Add($"Proteína atrasada: {consumido.ProteinaG:0} g de {metaMacros.ProteinaG:0} g até agora.");
         if (restante.Kcal < 0)
             alertas.Add($"Dia acima da meta em {-restante.Kcal:0} kcal. As próximas refeições foram reduzidas até o piso; não pule refeições.");
         if (alvos.Any(a => a.NoPiso))
             alertas.Add("Algumas refeições estão no piso mínimo do alvo.");
 
         return new PainelDiaDto(dia, MacrosDto.De(metaMacros), MacrosDto.De(consumido), MacrosDto.De(restante),
-            refeicoesDto, lancamentos.Select(r => r.ParaDto()).ToList(), alertas);
+            refeicoesDto, lancamentos.Select(r => r.ParaDto()).ToList(), alertas, metaDia.DiaDeTreino, metaDia.Explicacao);
     }
 
     /// <summary>2–3 favoritos que cabem no alvo da refeição (kcal até +10%), mais próximos primeiro.</summary>

@@ -20,6 +20,9 @@ public class RelogioFixo(DateTime agora) : IRelogio
 public class VisaoQueFalha : IVisionProvider
 {
     public string Nome => "falha";
+    public bool AceitaDadosSensiveis => true;
+    public Task<AnaliseCorpoResultado> AnalisarCorpoAsync(Stream imagem, string? descricao, Sexo sexo, CancellationToken ct) =>
+        throw new VisionIndisponivelException("429");
     public Task<AnalisePratoResultado> AnalisarPratoAsync(Stream imagem, string? descricao, TipoRefeicao tipo, CancellationToken ct) =>
         throw new VisionIndisponivelException("Cota do Gemini esgotada (HTTP 429).");
     public Task<AnaliseAparelhoResultado> AnalisarAparelhoAsync(Stream imagem, string? nome, CancellationToken ct) =>
@@ -29,6 +32,9 @@ public class VisaoQueFalha : IVisionProvider
 public class VisaoComPessoas : IVisionProvider
 {
     public string Nome => "pessoas";
+    public bool AceitaDadosSensiveis => false;
+    public Task<AnaliseCorpoResultado> AnalisarCorpoAsync(Stream imagem, string? descricao, Sexo sexo, CancellationToken ct) =>
+        throw new InvalidOperationException("não deveria ser chamado: provedor grátis");
     public Task<AnalisePratoResultado> AnalisarPratoAsync(Stream i, string? d, TipoRefeicao t, CancellationToken ct) =>
         Task.FromResult(new AnalisePratoResultado([new ItemIdentificado("arroz", null, 2000, 0.9m, null)], []));
     public Task<AnaliseAparelhoResultado> AnalisarAparelhoAsync(Stream imagem, string? nome, CancellationToken ct) =>

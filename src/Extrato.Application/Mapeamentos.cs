@@ -44,6 +44,9 @@ internal static class Mapeamentos
         FatorAtividade = r.FatorAtividade,
         HoraAlertaProteina = r.HoraAlertaProteina,
         PisoRefeicao = r.PisoRefeicao,
+        CicloTreinoAtivo = r.CicloTreinoAtivo,
+        KcalExtraDiaTreino = r.KcalExtraDiaTreino,
+        DiasTreino = [.. r.DiasTreino],
         PesosRefeicao = new PesosRefeicaoDto
         {
             Cafe = r.PesosRefeicao.Cafe, Almoco = r.PesosRefeicao.Almoco,

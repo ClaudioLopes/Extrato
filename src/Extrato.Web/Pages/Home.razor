@@ -35,7 +35,8 @@ else
             <div class="saldo-grande numero @(_painel.Restante.Kcal < 0 ? "negativo" : "")">
                 @_painel.Restante.Kcal.ToString("0") <span class="unid">kcal</span>
             </div>
-            <p class="suave pequeno">Meta @_painel.Meta.Kcal.ToString("0") · consumido @_painel.Consumido.Kcal.ToString("0") kcal</p>
+            <p class="suave pequeno">Meta @_painel.Meta.Kcal.ToString("0") · consumido @_painel.Consumido.Kcal.ToString("0") kcal
+                @if (_painel.AjusteTreino != null) { <br /><span class="etiqueta">@(_painel.DiaDeTreino ? "dia de treino" : "descanso")</span> @_painel.AjusteTreino }</p>
             <BarraMacro Nome="Calorias" Classe="c-kcal" Unidade="kcal" Meta="_painel.Meta.Kcal" Consumido="_painel.Consumido.Kcal" />
             <BarraMacro Nome="Proteína" Classe="c-prot" Meta="_painel.Meta.ProteinaG" Consumido="_painel.Consumido.ProteinaG" />
             <BarraMacro Nome="Carboidrato" Classe="c-carb" Meta="_painel.Meta.CarboG" Consumido="_painel.Consumido.CarboG" />
@@ -55,7 +56,10 @@ else
                         }
                         else
                         {
-                            <a class="btn mini" href="@($"registrar?tipo={r.Tipo}")">Registrar</a>
+                            <span class="linha">
+                                @if (_data == Hoje) { <button class="btn mini" disabled="@_ocupado" @onclick="() => SugerirCardapio(r.Tipo)">Cardápio</button> }
+                                <a class="btn mini" href="@($"registrar?tipo={r.Tipo}")">Registrar</a>
+                            </span>
                         }
                     </div>
                     @if (!r.Registrada)
@@ -65,6 +69,22 @@ else
                             @if (r.Alvo.Kcal != r.AlvoOriginal.Kcal) { <span>(era @r.AlvoOriginal.Kcal.ToString("0"))</span> }
                             @if (r.NoPiso) { <span class="etiqueta baixa">piso</span> }
                         </div>
+                        @if (_cardapios.TryGetValue(r.Tipo, out var cardapio))
+                        {
+                            <div class="cardapio">
+                                @if (cardapio.Opcoes.Count == 0) { <div class="suave pequeno">Sem opções que caibam no alvo (refeição pequena demais ou alimentos evitados).</div> }
+                                @foreach (var o in cardapio.Opcoes)
+                                {
+                                    <div class="opcao">
+                                        <div class="cresce">
+                                            <div class="pequeno">@string.Join(" + ", o.Itens.Select(i => $"{i.Alimento} {i.Gramas:0} g"))</div>
+                                            <div class="suave pequeno numero">@o.Total.Kcal.ToString("0") kcal · P @o.Total.ProteinaG.ToString("0") · C @o.Total.CarboG.ToString("0") · G @o.Total.GorduraG.ToString("0")</div>
+                                        </div>
+                                        <button class="btn mini saldo" disabled="@_ocupado" @onclick="() => RegistrarCardapio(r.Tipo, o)">Comi isso</button>
+                                    </div>
+                                }
+                            </div>
+                        }
                         @if (r.Sugestoes.Count > 0 && _data == Hoje)
                         {
                             <div class="chips">
@@ -133,6 +153,34 @@ else
     {
         _ocupado = true;
         try { await Api.RegistrarFavoritoAsync(id, tipo); await Carregar(); }
+        catch (ApiException ex) { _erro = ex.Message; }
+        finally { _ocupado = false; }
+    }
+
+    private readonly Dictionary<TipoRefeicao, CardapioDto> _cardapios = [];
+
+    private async Task SugerirCardapio(TipoRefeicao tipo)
+    {
+        if (_cardapios.Remove(tipo)) return; // segundo clique fecha
+        _ocupado = true;
+        try { _cardapios[tipo] = await Api.CardapioAsync(tipo, _data); }
+        catch (ApiException ex) { _erro = ex.Message; }
+        finally { _ocupado = false; }
+    }
+
+    private async Task RegistrarCardapio(TipoRefeicao tipo, OpcaoCardapioDto o)
+    {
+        _ocupado = true;
+        try
+        {
+            await Api.CriarRefeicaoAsync(new NovaRefeicaoDto
+            {
+                Tipo = tipo, Origem = OrigemRefeicao.Manual, Descricao = "Cardápio sugerido",
+                Itens = o.Itens.Select(i => new NovoItemRefeicaoDto { AlimentoId = i.AlimentoId, Gramas = i.Gramas }).ToList()
+            });
+            _cardapios.Clear();
+            await Carregar();
+        }
         catch (ApiException ex) { _erro = ex.Message; }
         finally { _ocupado = false; }
     }

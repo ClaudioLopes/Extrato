@@ -31,6 +31,12 @@ public class GeminiVisionProvider(HttpClient http, IOptions<GeminiOptions> optio
 
     public string Nome => $"Gemini ({_opt.Modelo})";
 
+    // tier grátis: o Google pode usar o conteúdo enviado (seção 2.1)
+    public bool AceitaDadosSensiveis => false;
+
+    public Task<AnaliseCorpoResultado> AnalisarCorpoAsync(Stream imagem, string? descricao, Sexo sexo, CancellationToken ct) =>
+        throw new VisionIndisponivelException("Foto do corpo não é enviada ao Gemini (tier grátis). Use o Claude ou só as medidas.");
+
     public const string PromptPrato =
         "Você analisa fotos de refeições brasileiras. Liste cada alimento visível com nome em português, " +
         "forma de preparo e gramas estimadas. Considere um prato raso de ~26 cm como referência. " +

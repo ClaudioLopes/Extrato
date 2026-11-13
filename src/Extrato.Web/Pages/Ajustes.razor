@@ -74,6 +74,23 @@
                     <div class="campo"><label>Trava: superávit máx</label><InputNumber @bind-Value="_regras.Travas.SuperavitMaxKcal" /></div>
                     <div class="campo"><label>Trava: déficit máx</label><InputNumber @bind-Value="_regras.Travas.DeficitMaxKcal" /></div>
                 </div>
+                <div class="campo">
+                    <label class="linha" style="color:var(--texto)"><InputCheckbox @bind-Value="_regras.CicloTreinoAtivo" /> Metas diferentes em dia de treino e de descanso</label>
+                    @if (_regras.CicloTreinoAtivo)
+                    {
+                        <div class="grade-2" style="margin-top:8px">
+                            <div><label>Extra no dia de treino (kcal de carboidrato)</label><InputNumber @bind-Value="_regras.KcalExtraDiaTreino" /></div>
+                            <div class="suave pequeno" style="align-self:end">Descanso: −@ReducaoDescanso kcal (a média da semana não muda).</div>
+                        </div>
+                        <label style="margin-top:8px">Dias de treino planejados (dia com sessão registrada também conta)</label>
+                        <div class="dias-semana">
+                            @foreach (var d in DiasSemana)
+                            {
+                                <label><input type="checkbox" checked="@_regras.DiasTreino.Contains(d.Dia)" @onchange="e => AlternarDia(d.Dia, (bool)e.Value!)" /> @d.Nome</label>
+                            }
+                        </div>
+                    }
+                </div>
                 <ValidationSummary />
                 <button class="btn primario" type="submit" disabled="@_ocupado">Salvar regras</button>
             </EditForm>
@@ -231,6 +248,21 @@
         _perfil!.AlimentosEvitados = _evitados.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
         _perfil = await Api.SalvarPerfilAsync(_perfil);
     }, "Perfil salvo. Recalcule a meta se mudou peso, atividade ou objetivo.");
+
+    private static readonly (DayOfWeek Dia, string Nome)[] DiasSemana =
+    [
+        (DayOfWeek.Monday, "seg"), (DayOfWeek.Tuesday, "ter"), (DayOfWeek.Wednesday, "qua"), (DayOfWeek.Thursday, "qui"),
+        (DayOfWeek.Friday, "sex"), (DayOfWeek.Saturday, "sáb"), (DayOfWeek.Sunday, "dom"),
+    ];
+
+    private int ReducaoDescanso => _regras is null ? 0 : Extrato.Domain.Regras.CicloTreino.ReducaoDescanso(_regras.KcalExtraDiaTreino, _regras.DiasTreino.Count);
+
+    private void AlternarDia(DayOfWeek dia, bool marcado)
+    {
+        if (_regras is null) return;
+        if (marcado && !_regras.DiasTreino.Contains(dia)) _regras.DiasTreino.Add(dia);
+        if (!marcado) _regras.DiasTreino.Remove(dia);
+    }
 
     private Task TrocarSenha() => Executar(async () =>
     {

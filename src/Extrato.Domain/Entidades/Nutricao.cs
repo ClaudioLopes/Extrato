@@ -38,6 +38,12 @@ public class ConfiguracaoRegras
     public int HoraAlertaProteina { get; set; } = 18;
     /// <summary>Piso das refeições restantes quando o dia estoura (fração do alvo original).</summary>
     public decimal PisoRefeicao { get; set; } = 0.5m;
+    /// <summary>Fase 2: mais carboidrato em dia de treino, menos no descanso (média semanal igual).</summary>
+    public bool CicloTreinoAtivo { get; set; }
+    public int KcalExtraDiaTreino { get; set; } = 200;
+    /// <summary>Dias planejados de treino (dia com sessão registrada também conta).</summary>
+    public List<DayOfWeek> DiasTreino { get; set; } =
+        [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday];
 
     public static ConfiguracaoRegras PadraoPara(int usuarioId) => new() { UsuarioId = usuarioId };
 }
@@ -198,6 +204,9 @@ public class Medidas
     public decimal PescocoCm { get; set; }
     public decimal? QuadrilCm { get; set; }
     public string? ObservacaoCorporal { get; set; }
+    /// <summary>Fase 2: faixa de % de gordura estimada por foto (a foto em si nunca é guardada).</summary>
+    public decimal? GorduraFotoMinPercent { get; set; }
+    public decimal? GorduraFotoMaxPercent { get; set; }
 }
 
 /// <summary>Acesso do único usuário. Só o hash da senha (PBKDF2) é guardado.</summary>

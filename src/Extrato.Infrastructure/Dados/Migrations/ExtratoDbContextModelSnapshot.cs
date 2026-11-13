@@ -215,6 +215,14 @@ namespace Extrato.Infrastructure.Dados.Migrations
                     b.Property<int?>("AjusteKcal")
                         .HasColumnType("int");
 
+                    b.Property<bool>("CicloTreinoAtivo")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("DiasTreino")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
                     b.Property<decimal?>("FatorAtividade")
                         .HasPrecision(5, 3)
                         .HasColumnType("decimal(5,3)");
@@ -224,6 +232,9 @@ namespace Extrato.Infrastructure.Dados.Migrations
                         .HasColumnType("decimal(4,2)");
 
                     b.Property<int>("HoraAlertaProteina")
+                        .HasColumnType("int");
+
+                    b.Property<int>("KcalExtraDiaTreino")
                         .HasColumnType("int");
 
                     b.Property<string>("PesosRefeicao")
@@ -346,6 +357,14 @@ namespace Extrato.Infrastructure.Dados.Migrations
 
                     b.Property<DateOnly>("Data")
                         .HasColumnType("date");
+
+                    b.Property<decimal?>("GorduraFotoMaxPercent")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("decimal(4,1)");
+
+                    b.Property<decimal?>("GorduraFotoMinPercent")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("decimal(4,1)");
 
                     b.Property<string>("ObservacaoCorporal")
                         .HasMaxLength(1000)

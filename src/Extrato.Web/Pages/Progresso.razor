@@ -8,7 +8,10 @@
         <h1>Progresso</h1>
         <p class="subtitulo">A meta só muda pela tendência semanal (média móvel de 7 dias).</p>
     </div>
-    <button class="btn" disabled="@_ocupado" @onclick="RodarAjuste">Rodar ajuste semanal</button>
+    <div class="linha">
+        <a class="btn" href="relatorios">Relatórios</a>
+        <button class="btn" disabled="@_ocupado" @onclick="RodarAjuste">Rodar ajuste semanal</button>
+    </div>
 </div>
 
 @if (_erro != null) { <div class="erro">@_erro</div> }
@@ -43,16 +46,52 @@
             <div class="campo"><label>Data</label><input type="date" @bind="_dataMedidas" /></div>
         </div>
         <div class="campo"><label>Observação corporal (texto, nunca foto)</label><input @bind="_medidas.ObservacaoCorporal" /></div>
+        @if (_medidas.GorduraFotoMinPercent is { } fmin)
+        {
+            <div class="ok pequeno">Faixa da foto incluída: @fmin.ToString("0.#")–@(_medidas.GorduraFotoMaxPercent?.ToString("0.#"))% (só a faixa e o texto são salvos).</div>
+        }
         <button class="btn primario" disabled="@_ocupado" @onclick="SalvarMedidas">Registrar medidas</button>
+
+        <details style="margin-top:14px" @ontoggle="AbrirFoto">
+            <summary class="forte">Avaliação corporal por foto (opcional)</summary>
+            @if (_fotoSituacao is null) { <p class="suave pequeno">Verificando provedor…</p> }
+            else if (!_fotoSituacao.Permitido) { <div class="aviso" style="margin-top:8px">@_fotoSituacao.MotivoBloqueio</div> }
+            else
+            {
+                <p class="suave pequeno" style="margin-top:8px">
+                    A foto é reduzida e limpa no seu aparelho, enviada a <strong>@_fotoSituacao.Provedor</strong> e descartada.
+                    Nada da imagem é gravado; só a faixa estimada e as observações, se você salvar. As metas continuam usando peso e medidas.
+                </p>
+                <div class="campo"><label>Observação (opcional)</label><input @bind="_fotoDescricao" placeholder="ex.: manhã, em jejum, frente" /></div>
+                <label class="linha campo" style="color:var(--texto)"><input type="checkbox" @bind="_consentimento" /> Entendo e autorizo o envio desta foto ao provedor de IA.</label>
+                <div class="linha">
+                    <InputFile OnChange="e => _fotoCorpo = e.File" accept="image/*" capture="user" />
+                    <button class="btn" disabled="@(!_consentimento || _fotoCorpo == null || _ocupado)" @onclick="AnalisarCorpo">Analisar</button>
+                </div>
+                @if (_fotoResultado != null)
+                {
+                    <div class="cartao" style="margin-top:10px;margin-bottom:0">
+                        @if (_fotoResultado.FalhaIA) { <div class="erro">@_fotoResultado.MensagemFalha</div> }
+                        else
+                        {
+                            <div>Faixa estimada: <strong>@FaixaTexto(_fotoResultado)</strong></div>
+                            @if (_fotoResultado.Observacoes != null) { <p class="pequeno">@_fotoResultado.Observacoes</p> }
+                            @foreach (var al in _fotoResultado.Alertas) { <div class="suave pequeno">• @al</div> }
+                            <button class="btn mini" style="margin-top:8px" @onclick="UsarFoto">Incluir nas medidas acima</button>
+                        }
+                    </div>
+                }
+            }
+        </details>
 
         @if (_progresso is { Medidas.Count: > 0 })
         {
             <table style="margin-top:12px">
-                <thead><tr><th>Data</th><th>Cintura</th><th>Pescoço</th><th>% gordura*</th></tr></thead>
+                <thead><tr><th>Data</th><th>Cintura</th><th>Pescoço</th><th>% gordura*</th><th>Foto</th></tr></thead>
                 <tbody>
                     @foreach (var m in _progresso.Medidas.OrderByDescending(m => m.Data))
                     {
-                        <tr><td>@m.Data.ToString("dd/MM")</td><td class="numero">@m.CinturaCm</td><td class="numero">@m.PescocoCm</td><td class="numero">@(m.GorduraEstimadaPercent?.ToString("0.0") ?? "—")</td></tr>
+                        <tr><td>@m.Data.ToString("dd/MM")</td><td class="numero">@m.CinturaCm</td><td class="numero">@m.PescocoCm</td><td class="numero">@(m.GorduraEstimadaPercent?.ToString("0.0") ?? "—")</td><td class="numero suave">@FaixaMedida(m)</td></tr>
                     }
                 </tbody>
             </table>
@@ -117,6 +156,35 @@
         await Api.RegistrarMedidasAsync(_medidas);
         _medidas = new();
     });
+
+    private AvaliacaoCorporalDto? _fotoSituacao, _fotoResultado;
+    private IBrowserFile? _fotoCorpo;
+    private string? _fotoDescricao;
+    private bool _consentimento;
+
+    private static string FaixaTexto(AvaliacaoCorporalDto r) =>
+        r.GorduraMinPercent is { } a && r.GorduraMaxPercent is { } b ? $"{a:0.#}–{b:0.#}%" : "não avaliável";
+
+    private static string FaixaMedida(MedidaDto m) =>
+        m.GorduraFotoMinPercent is { } a && m.GorduraFotoMaxPercent is { } b ? $"{a:0}–{b:0}%" : "";
+
+    private async Task AbrirFoto()
+    {
+        if (_fotoSituacao != null) return;
+        try { _fotoSituacao = await Api.FotoCorpoSituacaoAsync(); }
+        catch (Exception ex) { _erro = ex.Message; }
+    }
+
+    private Task AnalisarCorpo() => Executar(async () => _fotoResultado = await Api.AnalisarCorpoAsync(_fotoCorpo!, _fotoDescricao));
+
+    private void UsarFoto()
+    {
+        if (_fotoResultado is null) return;
+        _medidas.GorduraFotoMinPercent = _fotoResultado.GorduraMinPercent;
+        _medidas.GorduraFotoMaxPercent = _fotoResultado.GorduraMaxPercent;
+        if (!string.IsNullOrWhiteSpace(_fotoResultado.Observacoes))
+            _medidas.ObservacaoCorporal = _fotoResultado.Observacoes!.Length > 1000 ? _fotoResultado.Observacoes[..1000] : _fotoResultado.Observacoes;
+    }
 
     private Task RodarAjuste() => Executar(async () => _ajuste = await Api.AjusteSemanalAsync());
 }

@@ -97,6 +97,22 @@ public class ApiClient(HttpClient http, SessaoEstado sessao)
         return await Ler<RascunhoRefeicaoDto>(await http.PostAsync("api/refeicoes/analisar-foto", form));
     }
 
+    // Fase 2
+    public Task<CardapioDto> CardapioAsync(TipoRefeicao tipo, DateOnly data) => Get<CardapioDto>($"api/cardapio?tipo={tipo}&data={data:yyyy-MM-dd}");
+    public Task<RelatorioDto> RelatorioAsync(string periodo, DateOnly ate) => Get<RelatorioDto>($"api/relatorios?periodo={periodo}&ate={ate:yyyy-MM-dd}");
+    public Task<AvaliacaoCorporalDto> FotoCorpoSituacaoAsync() => Get<AvaliacaoCorporalDto>("api/medidas/foto-permitida");
+
+    public async Task<AvaliacaoCorporalDto> AnalisarCorpoAsync(IBrowserFile foto, string? descricao)
+    {
+        using var form = new MultipartFormDataContent
+        {
+            { new StringContent("true"), "consentimento" },
+            { new StringContent(descricao ?? ""), "descricao" }
+        };
+        form.Add(await PrepararFotoAsync(foto), "imagem", "foto.jpg");
+        return await Ler<AvaliacaoCorporalDto>(await http.PostAsync("api/medidas/analisar-foto", form));
+    }
+
     // Peso, medidas, progresso
     public Task<PontoPesoDto> RegistrarPesoAsync(NovoPesoDto dto) => Send<PontoPesoDto>(HttpMethod.Post, "api/peso", dto);
     public Task<MedidaDto> RegistrarMedidasAsync(NovasMedidasDto dto) => Send<MedidaDto>(HttpMethod.Post, "api/medidas", dto);

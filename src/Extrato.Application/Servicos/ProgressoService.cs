@@ -31,6 +31,9 @@ public class ProgressoService(IAppDbContext db, IUsuarioAtual usuario, IRelogio 
             UsuarioId = u.Id, Data = data, CinturaCm = dto.CinturaCm, PescocoCm = dto.PescocoCm,
             QuadrilCm = dto.QuadrilCm, ObservacaoCorporal = dto.ObservacaoCorporal
         };
+        var (fMin, fMax) = AvaliacaoCorporalService.ValidarFaixa(dto.GorduraFotoMinPercent, dto.GorduraFotoMaxPercent);
+        m.GorduraFotoMinPercent = fMin;
+        m.GorduraFotoMaxPercent = fMax;
         db.Medidas.Add(m);
         await db.SaveChangesAsync(ct);
         return ParaDto(m, u);
@@ -76,5 +79,6 @@ public class ProgressoService(IAppDbContext db, IUsuarioAtual usuario, IRelogio 
 
     private static MedidaDto ParaDto(Medidas m, Usuario u) =>
         new(m.Id, m.Data, m.CinturaCm, m.PescocoCm, m.QuadrilCm, m.ObservacaoCorporal,
-            GorduraCorporal.MarinhaAmericana(u.Sexo, u.AlturaCm, m.CinturaCm, m.PescocoCm, m.QuadrilCm));
+            GorduraCorporal.MarinhaAmericana(u.Sexo, u.AlturaCm, m.CinturaCm, m.PescocoCm, m.QuadrilCm),
+            m.GorduraFotoMinPercent, m.GorduraFotoMaxPercent);
 }

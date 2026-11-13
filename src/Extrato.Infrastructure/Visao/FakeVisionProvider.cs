@@ -13,6 +13,15 @@ public partial class FakeVisionProvider : IVisionProvider
 {
     public string Nome => "Fake (demo offline)";
 
+    // demo offline: nada sai da máquina
+    public bool AceitaDadosSensiveis => true;
+
+    public Task<AnaliseCorpoResultado> AnalisarCorpoAsync(Stream imagem, string? descricao, Sexo sexo, CancellationToken ct) =>
+        Task.FromResult(new AnaliseCorpoResultado(
+            sexo == Sexo.Masculino ? 14 : 22, sexo == Sexo.Masculino ? 18 : 27,
+            "Estimativa simulada (FakeVisionProvider). Configure a chave do Claude para uma análise real.",
+            ["Análise simulada: não use para decisões."]));
+
     public Task<AnalisePratoResultado> AnalisarPratoAsync(Stream imagem, string? descricao, TipoRefeicao tipo, CancellationToken ct)
     {
         var itens = string.IsNullOrWhiteSpace(descricao) ? [] : DaDescricao(descricao);

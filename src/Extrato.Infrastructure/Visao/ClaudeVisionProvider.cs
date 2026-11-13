@@ -44,6 +44,42 @@ public class ClaudeVisionProvider : IVisionProvider
 
     public string Nome => $"Claude ({_opt.Modelo})";
 
+    /// <summary>API paga da Anthropic (termos comerciais): permitido para a foto do corpo. Confira os termos vigentes.</summary>
+    public bool AceitaDadosSensiveis => true;
+
+    public const string PromptCorpo =
+        "Você ajuda a acompanhar a composição corporal de um adulto ao longo do tempo. Pela foto, estime uma faixa " +
+        "plausível de percentual de gordura corporal (mínimo e máximo, faixa de até 6 pontos) e descreva em poucas frases " +
+        "neutras o que é visível (definição muscular, distribuição de gordura). Não identifique a pessoa, não comente " +
+        "aparência além disso e não dê conselhos médicos. Se a foto não permitir avaliar (roupa larga, ângulo, iluminação, " +
+        "mais de uma pessoa, menor de idade), marque avaliavel como false e explique em alertas. Responda somente no JSON do schema.";
+
+    private static readonly Dictionary<string, JsonElement> SchemaCorpo = Schema(new
+    {
+        type = "object",
+        additionalProperties = false,
+        required = new[] { "avaliavel", "gorduraMin", "gorduraMax", "observacoes", "alertas" },
+        properties = new
+        {
+            avaliavel = new { type = "boolean" },
+            gorduraMin = new { type = "number" },
+            gorduraMax = new { type = "number" },
+            observacoes = new { type = "string" },
+            alertas = new { type = "array", items = new { type = "string" } }
+        }
+    });
+
+    private record CorpoJson(bool Avaliavel, decimal GorduraMin, decimal GorduraMax, string? Observacoes, List<string>? Alertas);
+
+    public async Task<AnaliseCorpoResultado> AnalisarCorpoAsync(Stream imagem, string? descricao, Sexo sexo, CancellationToken ct)
+    {
+        var texto = $"Sexo: {sexo}." + (string.IsNullOrWhiteSpace(descricao) ? "" : $" Observação do usuário: \"{descricao}\".");
+        var r = Desserializar<CorpoJson>(await GerarAsync(PromptCorpo, SchemaCorpo, imagem, texto, ct));
+        if (!r.Avaliavel)
+            return new AnaliseCorpoResultado(null, null, Vazio(r.Observacoes), r.Alertas is { Count: > 0 } a ? a : ["A foto não permitiu avaliar."]);
+        return new AnaliseCorpoResultado(r.GorduraMin, r.GorduraMax, Vazio(r.Observacoes), r.Alertas ?? []);
+    }
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     private static readonly Dictionary<string, JsonElement> SchemaPrato = Schema(new

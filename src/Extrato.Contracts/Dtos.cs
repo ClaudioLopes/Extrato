@@ -52,6 +52,9 @@ public class RegrasDto
     public TravasDto Travas { get; set; } = new();
     [Range(0, 23)] public int HoraAlertaProteina { get; set; } = 18;
     [Range(0, 1)] public decimal PisoRefeicao { get; set; } = 0.5m;
+    public bool CicloTreinoAtivo { get; set; }
+    [Range(0, 600)] public int KcalExtraDiaTreino { get; set; } = 200;
+    public List<DayOfWeek> DiasTreino { get; set; } = [];
 }
 
 // ---------- Metas ----------
@@ -166,7 +169,9 @@ public record PainelDiaDto(
     MacrosDto Restante,
     IReadOnlyList<AlvoRefeicaoDto> Refeicoes,
     IReadOnlyList<RefeicaoDto> Lancamentos,
-    IReadOnlyList<string> Alertas);
+    IReadOnlyList<string> Alertas,
+    bool DiaDeTreino = false,
+    string? AjusteTreino = null);
 
 // ---------- Peso, medidas, progresso ----------
 
@@ -183,11 +188,14 @@ public class NovasMedidasDto
     [Range(20, 70)] public decimal PescocoCm { get; set; }
     [Range(50, 200)] public decimal? QuadrilCm { get; set; }
     [StringLength(1000)] public string? ObservacaoCorporal { get; set; }
+    [Range(3, 60)] public decimal? GorduraFotoMinPercent { get; set; }
+    [Range(3, 60)] public decimal? GorduraFotoMaxPercent { get; set; }
 }
 
 public record PontoPesoDto(DateOnly Data, decimal? PesoKg, decimal? MediaMovel7d);
 
-public record MedidaDto(int Id, DateOnly Data, decimal CinturaCm, decimal PescocoCm, decimal? QuadrilCm, string? ObservacaoCorporal, decimal? GorduraEstimadaPercent);
+public record MedidaDto(int Id, DateOnly Data, decimal CinturaCm, decimal PescocoCm, decimal? QuadrilCm, string? ObservacaoCorporal, decimal? GorduraEstimadaPercent,
+    decimal? GorduraFotoMinPercent = null, decimal? GorduraFotoMaxPercent = null);
 
 public record ProgressoDto(IReadOnlyList<PontoPesoDto> Peso, IReadOnlyList<MedidaDto> Medidas, IReadOnlyList<AjusteMetaDto> Ajustes, decimal? ErroMedioIAGramas);
 
@@ -299,3 +307,47 @@ public class TrocarSenhaDto
     [Required, StringLength(200, MinimumLength = 10, ErrorMessage = "A senha precisa de pelo menos 10 caracteres.")]
     public string NovaSenha { get; set; } = "";
 }
+
+// ---------- Fase 2: cardápio ----------
+
+public record ItemCardapioDto(int AlimentoId, string Alimento, decimal Gramas, MacrosDto Macros);
+
+public record OpcaoCardapioDto(IReadOnlyList<ItemCardapioDto> Itens, MacrosDto Total, MacrosDto Diferenca);
+
+public record CardapioDto(TipoRefeicao Tipo, MacrosDto Alvo, IReadOnlyList<OpcaoCardapioDto> Opcoes);
+
+// ---------- Fase 2: relatórios ----------
+
+public record DiaRelatorioDto(DateOnly Data, MacrosDto Meta, MacrosDto Consumido, bool Registrado, bool DiaDeTreino, decimal? PesoKg);
+
+public record RelatorioDto(
+    string Periodo,
+    DateOnly De,
+    DateOnly Ate,
+    IReadOnlyList<DiaRelatorioDto> Dias,
+    int DiasRegistrados,
+    MacrosDto MediaConsumida,
+    MacrosDto MediaMeta,
+    int DiasNaMetaKcal,
+    int DiasProteinaAtingida,
+    decimal? PesoInicioMedia7d,
+    decimal? PesoFimMedia7d,
+    decimal? VariacaoCinturaCm,
+    int SessoesTreino,
+    decimal VolumeTreino,
+    IReadOnlyList<string> Recordes,
+    IReadOnlyList<AjusteMetaDto> Ajustes,
+    IReadOnlyList<string> Destaques);
+
+// ---------- Fase 2: avaliação corporal por foto ----------
+
+public record AvaliacaoCorporalDto(
+    bool Permitido,
+    string? MotivoBloqueio,
+    decimal? GorduraMinPercent,
+    decimal? GorduraMaxPercent,
+    string? Observacoes,
+    IReadOnlyList<string> Alertas,
+    bool FalhaIA,
+    string? MensagemFalha,
+    string Provedor);

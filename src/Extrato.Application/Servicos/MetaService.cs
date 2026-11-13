@@ -12,6 +12,25 @@ public class MetaService(IAppDbContext db, IUsuarioAtual usuario, IRelogio relog
         await db.Metas.Where(m => m.UsuarioId == usuario.UsuarioId && m.VigenteDesde <= data)
             .OrderByDescending(m => m.VigenteDesde).ThenByDescending(m => m.Id).FirstOrDefaultAsync(ct);
 
+    /// <summary>Meta efetiva do dia: a base vigente ajustada por dia de treino/descanso (fase 2).</summary>
+    public async Task<MetaDoDia?> MetaDoDiaAsync(DateOnly dia, CancellationToken ct)
+    {
+        var meta = await VigenteEmAsync(dia, ct);
+        if (meta is null) return null;
+        var regras = await perfil.ObterRegrasAsync(ct);
+        var ini = dia.ToDateTime(TimeOnly.MinValue);
+        var fim = ini.AddDays(1);
+        var houveSessao = await db.Sessoes.AnyAsync(s => s.DataHora >= ini && s.DataHora < fim, ct);
+        decimal tmb = 0;
+        try
+        {
+            var p = await perfil.PerfilCalculoAsync(ct);
+            tmb = CalculadoraMetas.Tmb(p.Sexo, p.PesoKg, p.AlturaCm, p.Idade);
+        }
+        catch (ValidacaoException) { /* sem peso registrado: sem trava de TMB */ }
+        return CicloTreino.Aplicar(meta.ComoMacros(), regras, CicloTreino.EhDiaDeTreino(dia, regras.DiasTreino, houveSessao), tmb);
+    }
+
     public async Task<MetaDto> AtualAsync(CancellationToken ct) =>
         (await VigenteEmAsync(relogio.Hoje, ct))?.ParaDto() ?? throw new NaoEncontradoException("Nenhuma meta calculada ainda.");
 

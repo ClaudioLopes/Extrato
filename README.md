@@ -123,9 +123,24 @@ Fora do modo de desenvolvimento o cookie exige HTTPS: publique atrás de um prox
 dotnet test
 ```
 
-121 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
+151 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
 redistribuição diária com piso, ajuste semanal (GET adaptativo, 2 semanas, 1×/semana), Epley, estagnação, dupla progressão,
-% de gordura (Marinha), busca por trigramas, integridade da TACO, sanitização de EXIF, escolha do provedor de IA, acesso (primeiro acesso, senha, login), fallback da IA e fluxos completos com EF InMemory.
+% de gordura (Marinha), busca por trigramas, integridade da TACO, ciclo treino/descanso, cardápio, relatórios, bloqueio da foto do corpo, sanitização de EXIF, escolha do provedor de IA, acesso (primeiro acesso, senha, login), fallback da IA e fluxos completos com EF InMemory.
+
+## Fase 2
+
+- **Dia de treino × descanso** (Ajustes → Regras): o dia de treino ganha carboidrato extra (padrão +200 kcal) e os
+  dias de descanso perdem o mesmo total, então a média da semana não muda. Conta como treino o dia planejado
+  (seg–sex por padrão) ou qualquer dia com sessão registrada. O descanso nunca fica abaixo da TMB.
+- **Cardápio sugerido** (Painel → Cardápio em cada refeição que falta): combina proteína + carboidrato + complemento
+  da TACO e calcula as gramas para o alvo da refeição. Respeita alimentos evitados e a rotina: a 1ª opção é o seu
+  prato de costume ajustado ao alvo de hoje, as outras variam a proteína. Macros sempre da tabela, sem IA.
+- **Relatórios** (Progresso → Relatórios): semana (7 dias) ou mês (30 dias) com aderência às calorias (±10%),
+  proteína atingida (≥90%), médias, peso pela média móvel, cintura, treinos, recordes e ajustes da meta.
+- **Avaliação corporal por foto** (Progresso → Medidas): só com o Claude (API paga) ou no modo demonstração; com o
+  Gemini grátis o botão fica bloqueado e a imagem nunca sai do servidor. Exige consentimento a cada envio, devolve
+  uma faixa de % de gordura e observações em texto; só isso é salvo, junto com as medidas. As metas continuam
+  usando peso e medidas.
 
 ## Tabela de alimentos (TACO completa)
 
@@ -165,7 +180,10 @@ curl -b cookies.txt -F "arquivo=@tabela.csv" "http://localhost:5080/api/alimento
 | GET/POST | `/api/alimentos` | Busca aproximada / cadastro por rótulo |
 | POST | `/api/alimentos/importar` | Importa CSV (TACO) |
 | GET/POST/DELETE | `/api/favoritos` | Porções favoritas; `POST /api/favoritos/{id}/registrar?tipo=` lança a refeição |
-| GET | `/api/painel/dia?data=` | Meta, consumido, restante, alvos por refeição e sugestões |
+| GET | `/api/painel/dia?data=` | Meta (do dia de treino/descanso), consumido, restante, alvos por refeição e sugestões |
+| GET | `/api/cardapio?tipo=&data=` | Cardápio sugerido para uma refeição |
+| GET | `/api/relatorios?periodo=semana\|mes&ate=` | Relatório semanal ou mensal |
+| GET/POST | `/api/medidas/foto-permitida`, `/api/medidas/analisar-foto` | Avaliação corporal por foto (provedor pago) |
 | POST | `/api/peso`, `/api/medidas` | Peso diário e medidas semanais |
 | GET | `/api/progresso?de=&ate=` | Média móvel, medidas com % de gordura, ajustes, erro médio da IA |
 | GET/POST | `/api/academias`, `/api/aparelhos`, `/api/rotinas` | Cadastro de treino |
