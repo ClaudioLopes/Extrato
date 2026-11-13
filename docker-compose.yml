@@ -1,6 +1,6 @@
 # Demo completa sem chave de API: SQL Server + Extrato com FakeVisionProvider.
 #   docker compose up --build   ->  http://localhost:8080
-# Para usar o Gemini: GEMINI_API_KEY=... docker compose up --build
+# Para usar o Claude: ANTHROPIC_API_KEY=... docker compose up --build  (ou GEMINI_API_KEY=... para o Gemini)
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -26,6 +26,7 @@ services:
         condition: service_healthy
     environment:
       ConnectionStrings__Extrato: "Server=sqlserver,1433;Database=Extrato;User Id=sa;Password=${SA_PASSWORD:-Extrato_Demo_2026!};TrustServerCertificate=True"
+      Claude__ApiKey: "${ANTHROPIC_API_KEY:-}"
       Gemini__ApiKey: "${GEMINI_API_KEY:-}"
       Extrato__FusoHorario: "America/Sao_Paulo"
     ports:

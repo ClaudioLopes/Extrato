@@ -21,3 +21,9 @@ com leitura por revisores humanos. Por isso:
 - Foto do prato: risco baixo, pode usar o tier grátis.
 - Foto do corpo: **não** é enviada ao tier grátis. A avaliação corporal usa só medidas
   (método da Marinha americana) e observações em texto.
+
+## Atualização: provedor Claude
+Com o `ClaudeVisionProvider` (API paga da Anthropic), o envio não cai nos termos do tier grátis do Gemini.
+Mesmo assim, a foto do corpo continua fora da fase 1: a regra é não enviar dado sensível sem necessidade,
+e o cálculo das metas usa medidas, não fotos. Antes de liberar foto do corpo na fase 2, confira os termos
+comerciais e a política de retenção de dados vigentes da API.

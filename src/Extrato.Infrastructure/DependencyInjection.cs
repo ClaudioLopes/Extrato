@@ -45,9 +45,47 @@ public static class DependencyInjection
         services.AddSingleton<IProcessadorImagem, SanitizadorImagem>();
 
         services.Configure<GeminiOptions>(config.GetSection(GeminiOptions.Secao));
+        services.Configure<ClaudeOptions>(config.GetSection(ClaudeOptions.Secao));
+
+        switch (EscolherProvedor(config))
+        {
+            case "Claude":
+                services.AddSingleton<IVisionProvider, ClaudeVisionProvider>();
+                break;
+            case "Gemini":
+                AddGemini(services);
+                break;
+            default:
+                services.AddSingleton<IVisionProvider, FakeVisionProvider>();
+                break;
+        }
+
+        services.AddHostedService<AjusteSemanalJob>();
+        return services;
+    }
+
+    /// <summary>
+    /// Visao:Provedor = Claude | Gemini | Fake. Vazio: Claude se houver chave da Anthropic
+    /// (Claude:ApiKey ou ANTHROPIC_API_KEY), senão Gemini se houver chave, senão Fake.
+    /// </summary>
+    public static string EscolherProvedor(IConfiguration config)
+    {
         var provedor = config["Visao:Provedor"];
-        var temChave = !string.IsNullOrWhiteSpace(config[$"{GeminiOptions.Secao}:ApiKey"]);
-        if (string.Equals(provedor, "Gemini", StringComparison.OrdinalIgnoreCase) || (string.IsNullOrWhiteSpace(provedor) && temChave))
+        if (!string.IsNullOrWhiteSpace(provedor))
+        {
+            foreach (var p in new[] { "Claude", "Gemini", "Fake" })
+                if (string.Equals(provedor, p, StringComparison.OrdinalIgnoreCase)) return p;
+            throw new InvalidOperationException($"Visao:Provedor inválido: '{provedor}'. Use Claude, Gemini ou Fake.");
+        }
+        if (!string.IsNullOrWhiteSpace(config[$"{ClaudeOptions.Secao}:ApiKey"]) || !string.IsNullOrWhiteSpace(config["ANTHROPIC_API_KEY"]))
+            return "Claude";
+        if (!string.IsNullOrWhiteSpace(config[$"{GeminiOptions.Secao}:ApiKey"]))
+            return "Gemini";
+        return "Fake";
+    }
+
+    private static void AddGemini(IServiceCollection services)
+    {
         {
             services.AddHttpClient<IVisionProvider, GeminiVisionProvider>((sp, http) =>
             {
@@ -56,13 +94,6 @@ public static class DependencyInjection
                 http.Timeout = TimeSpan.FromSeconds(opt.TimeoutSegundos * opt.MaxTentativas + 30);
             });
         }
-        else
-        {
-            services.AddSingleton<IVisionProvider, FakeVisionProvider>();
-        }
-
-        services.AddHostedService<AjusteSemanalJob>();
-        return services;
     }
 
     public static async Task InicializarBancoAsync(this IServiceProvider sp, CancellationToken ct = default)

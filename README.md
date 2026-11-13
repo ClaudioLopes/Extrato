@@ -6,7 +6,7 @@ refeições por **foto + descrição** e ajusta o restante do dia pelo que já f
 > Metáfora de extrato bancário: cada refeição e cada treino é um lançamento, e o painel mostra o **saldo do dia**.
 
 **Stack:** .NET 10 · ASP.NET Core Minimal APIs · Clean Architecture · EF Core + **SQL Server** ·
-Blazor WebAssembly (PWA) · Gemini (visão) atrás de `IVisionProvider` · xUnit + FluentAssertions · Docker · GitHub Actions.
+Blazor WebAssembly (PWA) · Claude ou Gemini (visão) atrás de `IVisionProvider` · xUnit + FluentAssertions · Docker · GitHub Actions.
 
 ## Princípios
 
@@ -35,6 +35,7 @@ flowchart LR
     end
     subgraph Infra[Extrato.Infrastructure]
       DB[(SQL Server<br/>EF Core)]
+      C[ClaudeVisionProvider<br/>SDK oficial Anthropic]
       G[GeminiVisionProvider<br/>retry 429 + backoff]
       F[FakeVisionProvider<br/>demo offline]
       X[SanitizadorImagem<br/>remove EXIF]
@@ -42,7 +43,7 @@ flowchart LR
     end
     W -- HTTP/JSON --> E --> S --> R
     S --> I
-    I -.-> DB & G & F & X
+    I -.-> DB & C & G & F & X
     J --> S
 ```
 
@@ -51,7 +52,7 @@ flowchart LR
 | `Extrato.Domain` | Entidades e **regras de cálculo puras** (sem dependências) |
 | `Extrato.Contracts` | DTOs compartilhados entre API e Blazor |
 | `Extrato.Application` | Casos de uso, match de alimentos, contratos de IA/imagem/banco |
-| `Extrato.Infrastructure` | EF Core/SQL Server, migrações, seed, Gemini, Fake, sanitizador, job |
+| `Extrato.Infrastructure` | EF Core/SQL Server, migrações, seed, Claude, Gemini, Fake, sanitizador, job |
 | `Extrato.Api` | Endpoints, validação, ProblemDetails; hospeda o Blazor |
 | `Extrato.Web` | Front Blazor WebAssembly instalável (PWA) |
 
@@ -76,16 +77,31 @@ A connection string padrão está em `src/Extrato.Api/appsettings.json` (`localh
 Para LocalDB: `Server=(localdb)\MSSQLLocalDB;Database=Extrato;Trusted_Connection=True`.
 As migrações e o seed (perfil inicial, amostra da TACO, favoritos) rodam na inicialização.
 
-### Gemini (opcional)
+### IA de visão: Claude (recomendado) ou Gemini
+
+O provedor é escolhido em `Visao:Provedor` (`Claude`, `Gemini` ou `Fake`). Vazio, a ordem é:
+chave da Anthropic → Claude; senão chave do Gemini → Gemini; senão Fake (demo offline).
+
+**Claude** — usa o SDK oficial `Anthropic` com saída estruturada (JSON Schema), `claude-opus-5-5`
+com esforço `low` (identificar alimentos é tarefa simples e fica rápido), retries automáticos de 429/5xx
+e fallback de modelo no servidor quando uma resposta é recusada.
+
+```bash
+dotnet user-secrets set "Claude:ApiKey" "sk-ant-..." --project src/Extrato.Api
+```
+
+A chave vem do [Console da Anthropic](https://platform.claude.com/) (cobrança por uso, separada da
+assinatura do claude.ai). Modelo e esforço são configuráveis em `Claude:Modelo` e `Claude:Esforco`.
+
+**Gemini** — alternativa com tier grátis:
 
 ```bash
 dotnet user-secrets set "Gemini:ApiKey" "<sua-chave>" --project src/Extrato.Api
 ```
 
-Com chave configurada o app usa o Gemini; sem chave, o Fake. Force com `Visao:Provedor` = `Gemini` ou `Fake`.
-Falhas da IA (429 após retries com backoff exponencial, timeout, JSON inválido) abrem o registro manual com a descrição já preenchida.
-
 > ⚠️ No tier grátis do Gemini o conteúdo pode ser usado pelo Google. Use só para foto de prato, nunca do corpo.
+
+Em qualquer provedor, falhas (limite de uso, timeout, JSON inválido, recusa) abrem o registro manual com a descrição já preenchida.
 
 ### Testes
 
@@ -93,9 +109,9 @@ Falhas da IA (429 após retries com backoff exponencial, timeout, JSON inválido
 dotnet test
 ```
 
-90 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
+96 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
 redistribuição diária com piso, ajuste semanal (GET adaptativo, 2 semanas, 1×/semana), Epley, estagnação, dupla progressão,
-% de gordura (Marinha), busca por trigramas, sanitização de EXIF, fallback da IA e fluxos completos com EF InMemory.
+% de gordura (Marinha), busca por trigramas, sanitização de EXIF, escolha do provedor de IA, fallback da IA e fluxos completos com EF InMemory.
 
 ## Importando a TACO completa
 
