@@ -199,3 +199,13 @@ public class Medidas
     public decimal? QuadrilCm { get; set; }
     public string? ObservacaoCorporal { get; set; }
 }
+
+/// <summary>Acesso do único usuário. Só o hash da senha (PBKDF2) é guardado.</summary>
+public class Credencial
+{
+    public int UsuarioId { get; set; }
+    public string Login { get; set; } = "";
+    public string SenhaHash { get; set; } = "";
+    public DateTime CriadaEm { get; set; } = DateTime.UtcNow;
+    public DateTime AtualizadaEm { get; set; } = DateTime.UtcNow;
+}

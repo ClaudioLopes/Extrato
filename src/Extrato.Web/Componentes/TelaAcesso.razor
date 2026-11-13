@@ -1,0 +1,68 @@
+@* Login ou primeiro acesso (criação da senha), mostrados pelo layout no lugar do app. *@
+@inject ApiClient Api
+@inject SessaoEstado Sessao
+
+<div class="acesso">
+    <div class="cartao acesso-cartao">
+        <div class="marca acesso-marca"><img src="icon.svg" alt="" width="40" height="40" /> extrato</div>
+
+        @if (PrimeiroAcesso)
+        {
+            <h1>Primeiro acesso</h1>
+            <p class="suave pequeno">Crie o login e a senha que vão proteger seus dados. Isso só pode ser feito uma vez.</p>
+            <EditForm Model="_config" OnValidSubmit="Configurar" FormName="configurar">
+                <DataAnnotationsValidator />
+                <div class="campo"><label for="login">Login</label><InputText id="login" @bind-Value="_config.Login" autocomplete="username" /></div>
+                <div class="campo"><label for="senha">Senha (mín. 10 caracteres)</label><InputText id="senha" type="password" @bind-Value="_config.Senha" autocomplete="new-password" /></div>
+                <div class="campo"><label for="senha2">Repita a senha</label><input id="senha2" type="password" @bind="_confirmacao" autocomplete="new-password" /></div>
+                <details class="campo">
+                    <summary class="suave pequeno">Acessando de outro aparelho?</summary>
+                    <p class="suave pequeno">Fora do computador do servidor, informe o código definido em <code>Auth:CodigoConfiguracao</code>.</p>
+                    <InputText @bind-Value="_config.Codigo" placeholder="Código de configuração" />
+                </details>
+                <ValidationSummary />
+                @if (_erro != null) { <div class="erro">@_erro</div> }
+                <button class="btn primario largo" type="submit" disabled="@_ocupado">@(_ocupado ? "Criando…" : "Criar acesso e entrar")</button>
+            </EditForm>
+        }
+        else
+        {
+            <h1>Entrar</h1>
+            <EditForm Model="_login" OnValidSubmit="Entrar" FormName="login">
+                <DataAnnotationsValidator />
+                <div class="campo"><label for="login">Login</label><InputText id="login" @bind-Value="_login.Login" autocomplete="username" /></div>
+                <div class="campo"><label for="senha">Senha</label><InputText id="senha" type="password" @bind-Value="_login.Senha" autocomplete="current-password" /></div>
+                <label class="linha campo" style="color:var(--texto)"><InputCheckbox @bind-Value="_login.Lembrar" /> Manter conectado neste aparelho</label>
+                @if (_erro != null) { <div class="erro">@_erro</div> }
+                <button class="btn primario largo" type="submit" disabled="@_ocupado">@(_ocupado ? "Entrando…" : "Entrar")</button>
+            </EditForm>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool PrimeiroAcesso { get; set; }
+
+    private readonly LoginDto _login = new();
+    private readonly ConfigurarAcessoDto _config = new();
+    private string _confirmacao = "";
+    private string? _erro;
+    private bool _ocupado;
+
+    private async Task Entrar()
+    {
+        _ocupado = true; _erro = null;
+        try { Sessao.Definir(await Api.LoginAsync(_login)); }
+        catch (Exception ex) { _erro = ex.Message; _login.Senha = ""; }
+        finally { _ocupado = false; }
+    }
+
+    private async Task Configurar()
+    {
+        if (_config.Senha != _confirmacao) { _erro = "As senhas não conferem."; return; }
+        _ocupado = true; _erro = null;
+        try { Sessao.Definir(await Api.ConfigurarAcessoAsync(_config)); }
+        catch (Exception ex) { _erro = ex.Message; }
+        finally { _ocupado = false; }
+    }
+}

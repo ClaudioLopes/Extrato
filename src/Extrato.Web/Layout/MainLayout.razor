@@ -1,29 +1,54 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject SessaoEstado Sessao
+@inject ApiClient Api
 
-<div class="app">
-    <aside class="lateral">
-        <a class="marca" href="">
-            <img src="icon.svg" alt="" width="32" height="32" /> extrato
-        </a>
-        <nav>
+@if (Sessao.Atual is null)
+{
+    @if (_erro != null)
+    {
+        <div class="acesso"><div class="cartao acesso-cartao"><div class="erro">@_erro</div><button class="btn" @onclick="Carregar">Tentar de novo</button></div></div>
+    }
+    else
+    {
+        <div class="carregando"><img src="icon.svg" alt="" width="56" height="56" /><span>extrato</span></div>
+    }
+}
+else if (!Sessao.Atual.Autenticado)
+{
+    <TelaAcesso PrimeiroAcesso="!Sessao.Atual.Configurado" />
+}
+else
+{
+    <div class="app">
+        <aside class="lateral">
+            <a class="marca" href="">
+                <img src="icon.svg" alt="" width="32" height="32" /> extrato
+            </a>
+            <nav>
+                @foreach (var (href, ico, nome, match) in Links)
+                {
+                    <NavLink href="@href" Match="match"><span>@ico</span> @nome</NavLink>
+                }
+            </nav>
+            <div class="sair">
+                <div class="pequeno">@Sessao.Atual.Login</div>
+                <button class="btn mini" @onclick="Sair">Sair</button>
+            </div>
+        </aside>
+
+        <main class="conteudo">
+            @Body
+        </main>
+
+        <nav class="barra-inferior">
             @foreach (var (href, ico, nome, match) in Links)
             {
-                <NavLink href="@href" Match="match"><span>@ico</span> @nome</NavLink>
+                <NavLink href="@href" Match="match"><span class="ico">@ico</span>@nome</NavLink>
             }
         </nav>
-    </aside>
-
-    <main class="conteudo">
-        @Body
-    </main>
-
-    <nav class="barra-inferior">
-        @foreach (var (href, ico, nome, match) in Links)
-        {
-            <NavLink href="@href" Match="match"><span class="ico">@ico</span>@nome</NavLink>
-        }
-    </nav>
-</div>
+    </div>
+}
 
 @code {
     private static readonly (string, string, string, NavLinkMatch)[] Links =
@@ -34,4 +59,29 @@
         ("treino", "▤", "Treino", NavLinkMatch.Prefix),
         ("ajustes", "⚙", "Ajustes", NavLinkMatch.Prefix),
     ];
+
+    private string? _erro;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Sessao.Mudou += AoMudar;
+        await Carregar();
+    }
+
+    private async Task Carregar()
+    {
+        _erro = null;
+        try { Sessao.Definir(await Api.SessaoAsync()); }
+        catch (Exception) { _erro = "Não foi possível falar com o servidor."; }
+    }
+
+    private async Task Sair()
+    {
+        try { await Api.LogoutAsync(); } catch (Exception) { }
+        Sessao.Definir(Sessao.Atual! with { Autenticado = false, Login = null });
+    }
+
+    private void AoMudar() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Sessao.Mudou -= AoMudar;
 }

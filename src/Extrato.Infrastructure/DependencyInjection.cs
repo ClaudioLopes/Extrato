@@ -43,6 +43,8 @@ public static class DependencyInjection
         services.AddSingleton<IUsuarioAtual, UsuarioPadrao>();
         services.AddSingleton<IRelogio, RelogioLocal>();
         services.AddSingleton<IProcessadorImagem, SanitizadorImagem>();
+        services.AddSingleton<Application.Servicos.IHasherSenha, HasherSenhaPbkdf2>();
+        services.Configure<Application.Servicos.OpcoesAcesso>(config.GetSection(Application.Servicos.OpcoesAcesso.Secao));
 
         services.Configure<GeminiOptions>(config.GetSection(GeminiOptions.Secao));
         services.Configure<ClaudeOptions>(config.GetSection(ClaudeOptions.Secao));

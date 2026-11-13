@@ -272,3 +272,30 @@ public record EvolucaoAparelhoDto(AparelhoDto Aparelho, IReadOnlyList<PontoEvolu
 public record VolumeGrupoDto(string GrupoMuscular, decimal Volume, int Series);
 
 public record EvolucaoSemanaDto(DateOnly De, DateOnly Ate, IReadOnlyList<VolumeGrupoDto> Grupos, IReadOnlyList<string> Alertas);
+
+// ---------- Acesso ----------
+
+public record SessaoUsuarioDto(bool Configurado, bool Autenticado, string? Login);
+
+public class LoginDto
+{
+    [Required, StringLength(60)] public string Login { get; set; } = "";
+    [Required, StringLength(200)] public string Senha { get; set; } = "";
+    public bool Lembrar { get; set; } = true;
+}
+
+public class ConfigurarAcessoDto
+{
+    [Required, StringLength(60, MinimumLength = 3)] public string Login { get; set; } = "";
+    [Required, StringLength(200, MinimumLength = 10, ErrorMessage = "A senha precisa de pelo menos 10 caracteres.")]
+    public string Senha { get; set; } = "";
+    /// <summary>Exigido quando o primeiro acesso não vem do próprio computador do servidor.</summary>
+    [StringLength(200)] public string? Codigo { get; set; }
+}
+
+public class TrocarSenhaDto
+{
+    [Required, StringLength(200)] public string SenhaAtual { get; set; } = "";
+    [Required, StringLength(200, MinimumLength = 10, ErrorMessage = "A senha precisa de pelo menos 10 caracteres.")]
+    public string NovaSenha { get; set; } = "";
+}

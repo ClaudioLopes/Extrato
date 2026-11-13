@@ -29,8 +29,17 @@ services:
       Claude__ApiKey: "${ANTHROPIC_API_KEY:-}"
       Gemini__ApiKey: "${GEMINI_API_KEY:-}"
       Extrato__FusoHorario: "America/Sao_Paulo"
+      # primeiro acesso de fora do container exige este código
+      Auth__CodigoConfiguracao: "${AUTH_CODIGO:-}"
+      # chaves do cookie de sessão persistidas (login sobrevive a reinícios)
+      Auth__PastaChaves: "/home/app/chaves"
+      # demo local em http; em produção use HTTPS e remova esta linha
+      Auth__CookieSomenteHttps: "false"
+    volumes:
+      - chaves:/home/app/chaves
     ports:
       - "8080:8080"
 
 volumes:
   sqldata:
+  chaves:

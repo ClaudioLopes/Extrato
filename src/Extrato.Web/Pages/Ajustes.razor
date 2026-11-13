@@ -1,5 +1,6 @@
 @page "/ajustes"
 @inject ApiClient Api
+@inject SessaoEstado Sessao
 
 <PageTitle>extrato · ajustes</PageTitle>
 
@@ -117,6 +118,19 @@
     </details>
 </section>
 
+<section class="cartao">
+    <h2>Acesso</h2>
+    <p class="suave pequeno">Conectado como <strong>@Sessao.Atual?.Login</strong>. Em celular, use "Sair" aqui; no computador, também na barra lateral.</p>
+    <div class="grade-2">
+        <div class="campo"><label>Senha atual</label><input type="password" autocomplete="current-password" @bind="_senha.SenhaAtual" /></div>
+        <div class="campo"><label>Nova senha (mín. 10)</label><input type="password" autocomplete="new-password" @bind="_senha.NovaSenha" /></div>
+    </div>
+    <div class="linha">
+        <button class="btn" disabled="@(_ocupado || string.IsNullOrEmpty(_senha.NovaSenha))" @onclick="TrocarSenha">Trocar senha</button>
+        <button class="btn perigo" @onclick="Sair">Sair</button>
+    </div>
+</section>
+
 <div class="grade">
     <section class="cartao">
         <h2>Alimento por rótulo</h2>
@@ -176,6 +190,7 @@
     private NovoFavoritoDto _novoFav = new();
     private List<(NovoFavoritoItemDto Item, string Nome)> _itensFav = [];
     private List<FavoritoDto> _favoritos = [];
+    private TrocarSenhaDto _senha = new();
     private string _evitados = "", _sinonimos = "";
     private string? _erro, _ok;
     private bool _ocupado;
@@ -216,6 +231,18 @@
         _perfil!.AlimentosEvitados = _evitados.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
         _perfil = await Api.SalvarPerfilAsync(_perfil);
     }, "Perfil salvo. Recalcule a meta se mudou peso, atividade ou objetivo.");
+
+    private Task TrocarSenha() => Executar(async () =>
+    {
+        await Api.TrocarSenhaAsync(_senha);
+        _senha = new();
+    }, "Senha alterada.");
+
+    private async Task Sair()
+    {
+        try { await Api.LogoutAsync(); } catch (Exception) { }
+        Sessao.Definir(Sessao.Atual! with { Autenticado = false, Login = null });
+    }
 
     private Task SalvarRegras() => Executar(async () => _regras = await Api.SalvarRegrasAsync(_regras!), "Regras salvas.");
     private Task Simular() => Executar(async () => _calculo = await Api.SimularMetaAsync(), "Cálculo pronto (nada gravado).");

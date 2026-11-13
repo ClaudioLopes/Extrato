@@ -23,6 +23,7 @@ public interface IAppDbContext
     DbSet<Rotina> Rotinas { get; }
     DbSet<SessaoTreino> Sessoes { get; }
     DbSet<Serie> Series { get; }
+    DbSet<Credencial> Credenciais { get; }
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }
 

@@ -10,8 +10,27 @@ namespace Extrato.Web.Servicos;
 
 public class ApiException(string mensagem) : Exception(mensagem);
 
+/// <summary>Estado da sessão compartilhado: o layout decide entre login, primeiro acesso e app.</summary>
+public class SessaoEstado
+{
+    public SessaoUsuarioDto? Atual { get; private set; }
+    public event Action? Mudou;
+
+    public void Definir(SessaoUsuarioDto sessao)
+    {
+        Atual = sessao;
+        Mudou?.Invoke();
+    }
+
+    /// <summary>A API respondeu 401: o cookie expirou ou foi removido.</summary>
+    public void Expirou()
+    {
+        if (Atual is { Autenticado: true } a) Definir(a with { Autenticado = false, Login = null });
+    }
+}
+
 /// <summary>Cliente tipado da API. Erros viram ApiException com a mensagem do ProblemDetails.</summary>
-public class ApiClient(HttpClient http)
+public class ApiClient(HttpClient http, SessaoEstado sessao)
 {
     public const long TamanhoMaxFoto = 15 * 1024 * 1024;
     public const int LadoMaximoFoto = 1024;
@@ -34,6 +53,13 @@ public class ApiClient(HttpClient http)
     {
         Converters = { new JsonStringEnumConverter() }
     };
+
+    // Acesso
+    public Task<SessaoUsuarioDto> SessaoAsync() => Get<SessaoUsuarioDto>("api/auth/sessao");
+    public Task<SessaoUsuarioDto> LoginAsync(LoginDto dto) => Send<SessaoUsuarioDto>(HttpMethod.Post, "api/auth/login", dto);
+    public Task<SessaoUsuarioDto> ConfigurarAcessoAsync(ConfigurarAcessoDto dto) => Send<SessaoUsuarioDto>(HttpMethod.Post, "api/auth/configurar", dto);
+    public Task LogoutAsync() => Send<object>(HttpMethod.Post, "api/auth/logout", null);
+    public Task TrocarSenhaAsync(TrocarSenhaDto dto) => Send<object>(HttpMethod.Post, "api/auth/senha", dto);
 
     // Perfil, regras e metas
     public Task<PerfilDto> PerfilAsync() => Get<PerfilDto>("api/perfil");
@@ -109,10 +135,17 @@ public class ApiClient(HttpClient http)
         return await Ler<T>(await http.SendAsync(req));
     }
 
-    private static async Task<T> Ler<T>(HttpResponseMessage resp)
+    private async Task<T> Ler<T>(HttpResponseMessage resp)
     {
         using (resp)
         {
+            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && !resp.RequestMessage!.RequestUri!.AbsolutePath.Contains("/api/auth/"))
+            {
+                sessao.Expirou();
+                throw new ApiException("Sessão expirada. Entre novamente.");
+            }
+            if (resp.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                throw new ApiException("Muitas tentativas. Aguarde um minuto e tente de novo.");
             if (resp.IsSuccessStatusCode)
             {
                 if (resp.StatusCode == System.Net.HttpStatusCode.NoContent || typeof(T) == typeof(object)) return default!;

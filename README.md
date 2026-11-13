@@ -103,15 +103,29 @@ dotnet user-secrets set "Gemini:ApiKey" "<sua-chave>" --project src/Extrato.Api
 
 Em qualquer provedor, falhas (limite de uso, timeout, JSON inválido, recusa) abrem o registro manual com a descrição já preenchida.
 
+### Acesso (login)
+
+O app tem um usuário só, protegido por login e senha (hash PBKDF2 no banco, sessão em cookie
+`HttpOnly` + `SameSite=Strict`, válida por 30 dias). Toda a API exige login, exceto `/api/auth/*` e `/health`.
+O login tem limite de 5 tentativas por minuto por IP.
+
+**Primeiro acesso:** ao abrir o app pela primeira vez aparece a tela "Primeiro acesso" para criar login e senha.
+Por segurança ela só funciona:
+- no próprio computador onde o app está rodando (`localhost`), ou
+- de outro aparelho, informando o código definido em `Auth:CodigoConfiguracao` (ex.: no Docker, `AUTH_CODIGO=... docker compose up`).
+
+Assim ninguém cria a senha antes de você se o app estiver publicado. A senha pode ser trocada em **Ajustes → Acesso**.
+Fora do modo de desenvolvimento o cookie exige HTTPS: publique atrás de um proxy com TLS.
+
 ### Testes
 
 ```bash
 dotnet test
 ```
 
-96 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
+107 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
 redistribuição diária com piso, ajuste semanal (GET adaptativo, 2 semanas, 1×/semana), Epley, estagnação, dupla progressão,
-% de gordura (Marinha), busca por trigramas, sanitização de EXIF, escolha do provedor de IA, fallback da IA e fluxos completos com EF InMemory.
+% de gordura (Marinha), busca por trigramas, sanitização de EXIF, escolha do provedor de IA, acesso (primeiro acesso, senha, login), fallback da IA e fluxos completos com EF InMemory.
 
 ## Importando a TACO completa
 
@@ -126,6 +140,8 @@ curl -F "arquivo=@taco.csv" "http://localhost:5080/api/alimentos/importar?fonte=
 
 | Método | Rota | Função |
 |---|---|---|
+| GET | `/api/auth/sessao` | Estado do acesso (público) |
+| POST | `/api/auth/configurar`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/senha` | Primeiro acesso, login, logout, troca de senha |
 | GET/PUT | `/api/perfil` | Perfil |
 | GET/PUT | `/api/regras` | Coeficientes (proteína/kg, gordura/kg, ajuste, pesos das refeições, travas) |
 | GET/PUT | `/api/metas/atual` | Meta vigente / sobrescrever manualmente |

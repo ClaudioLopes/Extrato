@@ -25,6 +25,7 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
     public DbSet<Rotina> Rotinas => Set<Rotina>();
     public DbSet<SessaoTreino> Sessoes => Set<SessaoTreino>();
     public DbSet<Serie> Series => Set<Serie>();
+    public DbSet<Credencial> Credenciais => Set<Credencial>();
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -150,6 +151,16 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
             e.Property(x => x.ObservacaoCorporal).HasMaxLength(1000);
             e.HasIndex(x => new { x.UsuarioId, x.Data });
             e.HasOne<Usuario>().WithMany().HasForeignKey(x => x.UsuarioId);
+        });
+
+        b.Entity<Credencial>(e =>
+        {
+            e.ToTable("Credencial");
+            e.HasKey(x => x.UsuarioId);
+            e.Property(x => x.Login).HasMaxLength(60);
+            e.Property(x => x.SenhaHash).HasMaxLength(400);
+            e.HasIndex(x => x.Login).IsUnique();
+            e.HasOne<Usuario>().WithOne().HasForeignKey<Credencial>(x => x.UsuarioId);
         });
 
         b.Entity<Academia>(e => { e.ToTable("Academia"); e.Property(x => x.Nome).HasMaxLength(100); });

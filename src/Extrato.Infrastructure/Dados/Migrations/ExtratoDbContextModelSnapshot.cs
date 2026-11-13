@@ -249,6 +249,35 @@ namespace Extrato.Infrastructure.Dados.Migrations
                     b.ToTable("ConfiguracaoRegras", (string)null);
                 });
 
+            modelBuilder.Entity("Extrato.Domain.Entidades.Credencial", b =>
+                {
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("AtualizadaEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CriadaEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Login")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("SenhaHash")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.HasKey("UsuarioId");
+
+                    b.HasIndex("Login")
+                        .IsUnique();
+
+                    b.ToTable("Credencial", (string)null);
+                });
+
             modelBuilder.Entity("Extrato.Domain.Entidades.ItemRefeicao", b =>
                 {
                     b.Property<int>("Id")
@@ -687,6 +716,15 @@ namespace Extrato.Infrastructure.Dados.Migrations
                     b.HasOne("Extrato.Domain.Entidades.Usuario", null)
                         .WithOne("Regras")
                         .HasForeignKey("Extrato.Domain.Entidades.ConfiguracaoRegras", "UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Extrato.Domain.Entidades.Credencial", b =>
+                {
+                    b.HasOne("Extrato.Domain.Entidades.Usuario", null)
+                        .WithOne()
+                        .HasForeignKey("Extrato.Domain.Entidades.Credencial", "UsuarioId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
