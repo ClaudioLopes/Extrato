@@ -207,7 +207,7 @@ public class FluxosTests : IAsyncLifetime
     [Fact]
     public async Task Painel_reflete_consumo_e_redistribui_restante()
     {
-        var frango = await _db.Alimentos.SingleAsync(a => a.Nome.StartsWith("Frango, peito"));
+        var frango = await _db.Alimentos.SingleAsync(a => a.Nome == "Frango, peito, sem pele, grelhado");
         await Refeicoes().CriarAsync(new NovaRefeicaoDto
         {
             Tipo = TipoRefeicao.Almoco, Itens = [new NovoItemRefeicaoDto { AlimentoId = frango.Id, Gramas = 200 }]

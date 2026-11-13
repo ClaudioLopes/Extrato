@@ -7,85 +7,121 @@ using Microsoft.EntityFrameworkCore;
 namespace Extrato.Infrastructure.Dados;
 
 /// <summary>
-/// Seed para uso pessoal (seção 1) e uma amostra da TACO (4ª ed., valores por 100 g).
-/// A tabela completa pode ser importada via POST /api/alimentos/importar (CSV).
+/// Seed para uso pessoal (seção 1) e a TACO completa (4ª ed. revisada e ampliada, NEPA/UNICAMP, 2011),
+/// carregada de Dados/taco.csv (embutido na DLL). Valores por 100 g de parte comestível.
 /// </summary>
 public static class SemeadorDados
 {
     public const int UsuarioPadraoId = 1;
+    public const string RecursoTaco = "Extrato.taco.csv";
 
-    // nome; kcal; proteína; carboidrato; gordura; fibra; sinônimos
-    private static readonly (string Nome, decimal Kcal, decimal P, decimal C, decimal G, decimal? F, string[] Sin)[] Taco =
+    /// <summary>Sinônimos para o match com a descrição do usuário e com os nomes que a IA devolve.</summary>
+    public static readonly Dictionary<string, string[]> Sinonimos = new()
+    {
+        ["Arroz, tipo 1, cozido"] = ["arroz", "arroz branco", "arroz branco cozido"],
+        ["Arroz, integral, cozido"] = ["arroz integral"],
+        ["Feijão, carioca, cozido"] = ["feijao", "feijao carioca", "caldo de feijao"],
+        ["Feijão, preto, cozido"] = ["feijao preto"],
+        ["Frango, peito, sem pele, grelhado"] = ["frango grelhado", "peito de frango", "file de frango", "frango"],
+        ["Frango, sobrecoxa, sem pele, assada"] = ["sobrecoxa", "coxa de frango", "frango assado"],
+        ["Carne, bovina, contra-filé, sem gordura, grelhado"] = ["bife", "contra file", "carne grelhada", "bife grelhado"],
+        ["Carne, bovina, patinho, sem gordura, grelhado"] = ["patinho"],
+        ["Carne, bovina, acém, moído, cozido"] = ["carne moida", "patinho moido"],
+        ["Carne, bovina, miolo de alcatra, sem gordura, grelhado"] = ["alcatra", "picanha"],
+        ["Carne, bovina, fígado, grelhado"] = ["figado", "bife de figado"],
+        ["Porco, lombo, assado"] = ["lombo", "carne de porco"],
+        ["Lingüiça, porco, grelhada"] = ["linguica"],
+        ["Salmão, sem pele, fresco, grelhado"] = ["salmao"],
+        ["Atum, conserva em óleo"] = ["atum"],
+        ["Ovo, de galinha, inteiro, cozido/10minutos"] = ["ovo", "ovo cozido"],
+        ["Ovo, de galinha, inteiro, frito"] = ["ovo frito"],
+        ["Pão, trigo, francês"] = ["pao", "pao frances", "pao de sal"],
+        ["Pão, trigo, forma, integral"] = ["pao integral", "pao de forma"],
+        ["Pão, de queijo, assado"] = ["pao de queijo"],
+        ["Iogurte, natural"] = ["iogurte"],
+        ["Queijo, minas, frescal"] = ["queijo minas", "queijo branco"],
+        ["Queijo, mozarela"] = ["mussarela", "queijo"],
+        ["Queijo, requeijão, cremoso"] = ["requeijao"],
+        ["Presunto, sem capa de gordura"] = ["presunto"],
+        ["Manteiga, com sal"] = ["manteiga"],
+        ["Banana, prata, crua"] = ["banana"],
+        ["Banana, nanica, crua"] = ["banana nanica"],
+        ["Maçã, Fuji, com casca, crua"] = ["maca"],
+        ["Morango, cru"] = ["morango"],
+        ["Mamão, Papaia, cru"] = ["mamao"],
+        ["Laranja, pêra, crua"] = ["laranja"],
+        ["Laranja, pêra, suco"] = ["suco de laranja"],
+        ["Abacate, cru"] = ["abacate"],
+        ["Aveia, flocos, crua"] = ["aveia"],
+        ["Batata, inglesa, cozida"] = ["batata", "batata cozida", "pure de batata"],
+        ["Batata, inglesa, frita"] = ["batata frita", "fritas"],
+        ["Batata, doce, cozida"] = ["batata doce"],
+        ["Mandioca, cozida"] = ["mandioca", "aipim", "macaxeira"],
+        ["Cuscuz, de milho, cozido com sal"] = ["cuscuz"],
+        ["Farinha, de mandioca, torrada"] = ["farofa", "farinha de mandioca"],
+        ["Alface, crespa, crua"] = ["alface", "salada"],
+        ["Tomate, com semente, cru"] = ["tomate"],
+        ["Cenoura, crua"] = ["cenoura"],
+        ["Brócolis, cozido"] = ["brocolis"],
+        ["Macarrão, trigo, cru"] = ["macarrao", "massa", "espaguete"],
+        ["Amendoim, grão, cru"] = ["amendoim"],
+        ["Óleo, de soja"] = ["oleo", "oleo de cozinha"],
+        ["Azeite, de oliva, extra virgem"] = ["azeite"],
+        ["Açúcar, refinado"] = ["acucar"],
+        ["Mel, de abelha"] = ["mel"],
+        ["Chocolate, ao leite"] = ["chocolate"],
+        ["Café, infusão 10%"] = ["cafe"],
+        ["Tapioca, com manteiga"] = ["tapioca"],
+        ["Feijoada"] = ["feijoada"],
+        ["Cerveja, pilsen"] = ["cerveja"],
+    };
+
+    /// <summary>
+    /// Itens sem dados na TACO (leite UHT aparece "em análise") ou industrializados (seção 2.4):
+    /// valores de rótulo típicos, para o usuário ajustar pelo próprio rótulo.
+    /// </summary>
+    internal static readonly (string Nome, decimal Kcal, decimal P, decimal C, decimal G, string[] Sin)[] Rotulos =
     [
-        ("Arroz, tipo 1, cozido", 128, 2.5m, 28.1m, 0.2m, 1.6m, ["arroz", "arroz branco", "arroz branco cozido"]),
-        ("Arroz, integral, cozido", 124, 2.6m, 25.8m, 1.0m, 2.7m, ["arroz integral"]),
-        ("Feijão, carioca, cozido", 76, 4.8m, 13.6m, 0.5m, 8.5m, ["feijao", "feijao carioca", "caldo de feijao"]),
-        ("Feijão, preto, cozido", 77, 4.5m, 14.0m, 0.5m, 8.4m, ["feijao preto"]),
-        ("Frango, peito, sem pele, grelhado", 159, 32.0m, 0m, 2.5m, null, ["frango grelhado", "peito de frango", "file de frango", "frango"]),
-        ("Frango, sobrecoxa, sem pele, assada", 233, 29.2m, 0m, 12.0m, null, ["sobrecoxa", "coxa de frango", "frango assado"]),
-        ("Carne, bovina, contra-filé, sem gordura, grelhado", 194, 35.9m, 0m, 4.5m, null, ["bife", "contra file", "carne grelhada", "bife grelhado"]),
-        ("Carne, bovina, patinho, sem gordura, grelhado", 219, 35.9m, 0m, 7.3m, null, ["patinho"]),
-        ("Carne, bovina, acém, moído, cozido", 212, 26.7m, 0m, 10.9m, null, ["carne moida", "patinho moido"]),
-        ("Carne, bovina, alcatra, sem gordura, grelhada", 241, 31.9m, 0m, 11.6m, null, ["alcatra", "picanha"]),
-        ("Carne, bovina, fígado, grelhado", 225, 29.9m, 4.2m, 9.0m, null, ["figado", "bife de figado"]),
-        ("Porco, lombo, assado", 210, 35.7m, 0m, 6.4m, null, ["lombo", "carne de porco"]),
-        ("Lingüiça, porco, grelhada", 296, 23.2m, 0m, 21.9m, null, ["linguica"]),
-        ("Salmão, sem pele, fresco, grelhado", 229, 23.9m, 0m, 14.0m, null, ["salmao"]),
-        ("Atum, conserva em óleo", 166, 26.2m, 0m, 6.0m, null, ["atum"]),
-        ("Ovo, de galinha, inteiro, cozido/10minutos", 146, 13.3m, 0.6m, 9.5m, null, ["ovo", "ovo cozido"]),
-        ("Ovo, de galinha, inteiro, frito", 240, 15.6m, 1.2m, 18.6m, null, ["ovo frito"]),
-        ("Pão, trigo, francês", 300, 8.0m, 58.6m, 3.1m, 2.3m, ["pao", "pao frances", "pao de sal"]),
-        ("Pão, trigo, forma, integral", 253, 9.4m, 49.9m, 3.7m, 6.9m, ["pao integral", "pao de forma"]),
-        ("Pão, de queijo, assado", 363, 5.1m, 34.2m, 24.6m, 0.6m, ["pao de queijo"]),
-        ("Leite, de vaca, integral", 61, 2.9m, 4.3m, 3.2m, null, ["leite", "leite integral"]),
-        ("Leite, de vaca, desnatado, UHT", 31, 2.9m, 4.3m, 0.3m, null, ["leite desnatado"]),
-        ("Iogurte, natural", 51, 4.1m, 1.9m, 3.0m, null, ["iogurte"]),
-        ("Queijo, minas, frescal", 264, 17.4m, 3.2m, 20.2m, null, ["queijo minas", "queijo branco"]),
-        ("Queijo, mozarela", 330, 22.6m, 3.0m, 25.2m, null, ["mussarela", "queijo"]),
-        ("Requeijão, cremoso", 257, 9.6m, 2.4m, 23.4m, null, ["requeijao"]),
-        ("Presunto, sem capa de gordura", 94, 14.3m, 2.1m, 2.7m, null, ["presunto"]),
-        ("Manteiga, com sal", 726, 0.4m, 0.1m, 82.4m, null, ["manteiga"]),
-        ("Banana, prata, crua", 98, 1.3m, 26.0m, 0.1m, 2.0m, ["banana"]),
-        ("Banana, nanica, crua", 92, 1.4m, 23.8m, 0.1m, 1.9m, ["banana nanica"]),
-        ("Maçã, Fuji, com casca, crua", 56, 0.3m, 15.2m, 0m, 1.3m, ["maca"]),
-        ("Morango, cru", 30, 0.9m, 6.8m, 0.3m, 1.7m, ["morango"]),
-        ("Mamão, Papaia, cru", 40, 0.5m, 10.4m, 0.1m, 1.0m, ["mamao"]),
-        ("Laranja, pêra, crua", 37, 1.0m, 8.9m, 0.1m, 0.8m, ["laranja"]),
-        ("Laranja, pêra, suco", 33, 0.7m, 7.6m, 0.1m, null, ["suco de laranja"]),
-        ("Abacate, cru", 96, 1.2m, 6.0m, 8.4m, 6.3m, ["abacate"]),
-        ("Aveia, flocos, crua", 394, 13.9m, 66.6m, 8.5m, 9.1m, ["aveia"]),
-        ("Batata, inglesa, cozida", 52, 1.2m, 11.9m, 0m, 1.3m, ["batata", "batata cozida", "pure de batata"]),
-        ("Batata, inglesa, frita", 267, 5.0m, 35.6m, 13.1m, 8.1m, ["batata frita", "fritas"]),
-        ("Batata, doce, cozida", 77, 0.6m, 18.4m, 0.1m, 2.2m, ["batata doce"]),
-        ("Mandioca, cozida", 125, 0.6m, 30.1m, 0.3m, 1.6m, ["mandioca", "aipim", "macaxeira"]),
-        ("Cuscuz, de milho, cozido com sal", 113, 2.2m, 25.3m, 0.7m, 2.1m, ["cuscuz"]),
-        ("Farinha, de mandioca, torrada", 365, 1.2m, 89.2m, 0.3m, 6.5m, ["farofa", "farinha de mandioca"]),
-        ("Alface, crespa, crua", 11, 1.3m, 1.7m, 0.2m, 1.8m, ["alface", "salada"]),
-        ("Tomate, com semente, cru", 15, 1.1m, 3.1m, 0.2m, 1.2m, ["tomate"]),
-        ("Cenoura, crua", 34, 1.3m, 7.7m, 0.2m, 3.2m, ["cenoura"]),
-        ("Brócolis, cozido", 25, 2.1m, 4.4m, 0.5m, 3.4m, ["brocolis"]),
-        ("Macarrão, trigo, cru", 371, 10.0m, 77.9m, 1.3m, 2.9m, ["macarrao", "massa", "espaguete"]),
-        ("Amendoim, grão, cru", 544, 27.2m, 20.3m, 43.9m, 8.0m, ["amendoim"]),
-        ("Óleo, de soja", 884, 0m, 0m, 100m, null, ["oleo", "oleo de cozinha"]),
-        ("Azeite, de oliva, extra virgem", 884, 0m, 0m, 100m, null, ["azeite"]),
-        ("Açúcar, refinado", 387, 0.3m, 99.5m, 0m, null, ["acucar"]),
-        ("Mel, de abelha", 309, 0m, 84.0m, 0m, null, ["mel"]),
-        ("Chocolate, ao leite", 540, 7.2m, 59.6m, 30.3m, 2.2m, ["chocolate"]),
-        ("Café, infusão 10%", 9, 0.7m, 1.5m, 0.1m, null, ["cafe"]),
+        ("Whey protein (rótulo)", 400, 80, 10, 5, ["whey", "whey protein"]),
+        ("Creatina monohidratada (rótulo)", 0, 0, 0, 0, ["creatina"]),
+        ("Leite integral UHT (rótulo)", 59, 3.2m, 4.7m, 3.0m, ["leite", "leite integral"]),
+        ("Leite desnatado UHT (rótulo)", 34, 3.2m, 4.8m, 0.2m, ["leite desnatado"]),
     ];
+
+    /// <summary>Nomes da versão anterior do seed que mudaram: renomeia a linha (mantém o Id e o histórico).</summary>
+    internal static readonly (string Antigo, string Novo, FonteAlimento Fonte)[] Renomes =
+    [
+        ("Carne, bovina, alcatra, sem gordura, grelhada", "Carne, bovina, miolo de alcatra, sem gordura, grelhado", FonteAlimento.Taco),
+        ("Requeijão, cremoso", "Queijo, requeijão, cremoso", FonteAlimento.Taco),
+        ("Leite, de vaca, integral", "Leite integral UHT (rótulo)", FonteAlimento.Personalizado),
+        ("Leite, de vaca, desnatado, UHT", "Leite desnatado UHT (rótulo)", FonteAlimento.Personalizado),
+    ];
+
+    public record LinhaTaco(int Numero, string Nome, string Categoria, decimal Kcal, decimal Proteina, decimal Carbo, decimal Gordura, decimal? Fibra);
+
+    /// <summary>Lê a TACO embutida (nome;kcal;proteina;carboidrato;gordura;fibra;numero_taco;categoria).</summary>
+    public static IReadOnlyList<LinhaTaco> LerTaco()
+    {
+        using var stream = typeof(SemeadorDados).Assembly.GetManifestResourceStream(RecursoTaco)
+            ?? throw new InvalidOperationException($"Recurso {RecursoTaco} não encontrado.");
+        using var reader = new StreamReader(stream, System.Text.Encoding.UTF8);
+        var pt = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+        decimal D(string s) => decimal.Parse(s, System.Globalization.NumberStyles.Number, pt);
+        var linhas = new List<LinhaTaco>();
+        reader.ReadLine(); // cabeçalho
+        string? l;
+        while ((l = reader.ReadLine()) != null)
+        {
+            if (string.IsNullOrWhiteSpace(l)) continue;
+            var c = l.Split(';');
+            linhas.Add(new LinhaTaco(int.Parse(c[6]), c[0], c[7], D(c[1]), D(c[2]), D(c[3]), D(c[4]), c[5].Length == 0 ? null : D(c[5])));
+        }
+        return linhas;
+    }
 
     public static async Task SemearAsync(IAppDbContext db, IRelogio relogio, CancellationToken ct = default)
     {
-        if (!await db.Alimentos.AnyAsync(ct))
-        {
-            foreach (var t in Taco)
-                db.Alimentos.Add(NovoAlimento(t.Nome, FonteAlimento.Taco, t.Kcal, t.P, t.C, t.G, t.F, t.Sin));
-
-            // Industrializados não estão na TACO: cadastro por rótulo (seção 2.4)
-            db.Alimentos.Add(NovoAlimento("Whey protein (rótulo)", FonteAlimento.Personalizado, 400, 80, 10, 5, null, ["whey", "whey protein"]));
-            db.Alimentos.Add(NovoAlimento("Creatina monohidratada (rótulo)", FonteAlimento.Personalizado, 0, 0, 0, 0, null, ["creatina"]));
-            await db.SaveChangesAsync(ct);
-        }
+        await SemearAlimentosAsync(db, ct);
 
         if (!await db.Usuarios.AnyAsync(ct))
         {
@@ -119,7 +155,7 @@ public static class SemeadorDados
             db.Favoritos.Add(new PorcaoFavorita
             {
                 UsuarioId = UsuarioPadraoId, Nome = "Vitamina (leite, whey, creatina, morango)", TipoSugerido = TipoRefeicao.Tarde,
-                Itens = [Item("Leite, de vaca, integral", 300), Item("Whey protein (rótulo)", 30), Item("Creatina monohidratada (rótulo)", 5), Item("Morango, cru", 100)]
+                Itens = [Item("Leite integral UHT (rótulo)", 300), Item("Whey protein (rótulo)", 30), Item("Creatina monohidratada (rótulo)", 5), Item("Morango, cru", 100)]
             });
             db.Favoritos.Add(new PorcaoFavorita
             {
@@ -140,6 +176,65 @@ public static class SemeadorDados
             db.Academias.Add(new Academia { Nome = "Academia principal" });
             await db.SaveChangesAsync(ct);
         }
+    }
+
+    /// <summary>
+    /// Idempotente: insere ou atualiza as linhas da TACO pelo nome normalizado, sem tocar em
+    /// alimentos de rótulo do usuário, renomeia nomes antigos do seed e completa sinônimos.
+    /// </summary>
+    public static async Task SemearAlimentosAsync(IAppDbContext db, CancellationToken ct = default)
+    {
+        var existentes = await db.Alimentos.Include(a => a.Sinonimos).ToListAsync(ct);
+        var porNome = existentes.ToDictionary(a => a.NomeNormalizado);
+
+        foreach (var (antigo, novo, fonte) in Renomes)
+        {
+            var normNovo = TextoBusca.Normalizar(novo);
+            if (porNome.TryGetValue(TextoBusca.Normalizar(antigo), out var a) && !porNome.ContainsKey(normNovo))
+            {
+                porNome.Remove(a.NomeNormalizado);
+                a.Nome = novo; a.NomeNormalizado = normNovo; a.Fonte = fonte;
+                porNome[normNovo] = a;
+            }
+        }
+
+        foreach (var t in LerTaco())
+        {
+            var norm = TextoBusca.Normalizar(t.Nome);
+            if (porNome.TryGetValue(norm, out var a))
+            {
+                if (a.Fonte != FonteAlimento.Taco) continue; // não sobrescreve cadastro por rótulo
+                a.Nome = t.Nome; a.Kcal100g = t.Kcal; a.Proteina100g = t.Proteina; a.Carbo100g = t.Carbo;
+                a.Gordura100g = t.Gordura; a.Fibra100g = t.Fibra;
+            }
+            else
+            {
+                a = NovoAlimento(t.Nome, FonteAlimento.Taco, t.Kcal, t.Proteina, t.Carbo, t.Gordura, t.Fibra, []);
+                db.Alimentos.Add(a);
+                porNome[norm] = a;
+            }
+        }
+
+        foreach (var r in Rotulos)
+        {
+            var norm = TextoBusca.Normalizar(r.Nome);
+            if (!porNome.ContainsKey(norm))
+            {
+                var a = NovoAlimento(r.Nome, FonteAlimento.Personalizado, r.Kcal, r.P, r.C, r.G, null, []);
+                db.Alimentos.Add(a);
+                porNome[norm] = a;
+            }
+        }
+
+        foreach (var (nome, termos) in Sinonimos.Concat(Rotulos.Select(r => KeyValuePair.Create(r.Nome, r.Sin))))
+        {
+            if (!porNome.TryGetValue(TextoBusca.Normalizar(nome), out var a)) continue;
+            foreach (var termo in termos.Select(TextoBusca.Normalizar).Distinct())
+                if (a.Sinonimos.All(s => s.Termo != termo))
+                    a.Sinonimos.Add(new AlimentoSinonimo { Termo = termo });
+        }
+
+        await db.SaveChangesAsync(ct);
     }
 
     private static Alimento NovoAlimento(string nome, FonteAlimento fonte, decimal kcal, decimal p, decimal c, decimal g, decimal? f, string[] sinonimos) => new()

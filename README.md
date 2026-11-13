@@ -123,17 +123,28 @@ Fora do modo de desenvolvimento o cookie exige HTTPS: publique atrás de um prox
 dotnet test
 ```
 
-107 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
+121 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
 redistribuição diária com piso, ajuste semanal (GET adaptativo, 2 semanas, 1×/semana), Epley, estagnação, dupla progressão,
-% de gordura (Marinha), busca por trigramas, sanitização de EXIF, escolha do provedor de IA, acesso (primeiro acesso, senha, login), fallback da IA e fluxos completos com EF InMemory.
+% de gordura (Marinha), busca por trigramas, integridade da TACO, sanitização de EXIF, escolha do provedor de IA, acesso (primeiro acesso, senha, login), fallback da IA e fluxos completos com EF InMemory.
 
-## Importando a TACO completa
+## Tabela de alimentos (TACO completa)
 
-O seed traz ~55 alimentos comuns da TACO (4ª ed.) e dois itens de rótulo (whey, creatina).
-Para a tabela completa, exporte um CSV `nome;kcal;proteina;carboidrato;gordura;fibra` (vírgula decimal) e envie:
+O app já vem com a **TACO 4ª edição revisada e ampliada** (NEPA/UNICAMP, 2011): 593 alimentos com
+kcal, proteína, carboidrato, gordura e fibra por 100 g, em `src/Extrato.Infrastructure/Dados/taco.csv`
+(embutido na DLL e carregado na inicialização). Fonte: [PDF oficial no NEPA/UNICAMP](https://nepa.unicamp.br/wp-content/uploads/sites/27/2023/10/taco_4_edicao_ampliada_e_revisada.pdf).
+
+- Extraída do PDF oficial; 20 linhas com células em branco no PDF (óleos, sal, croquete, estrogonofe…)
+  foram conferidas uma a uma. "Tr" (traço) e "NA" viram 0; fibra "NA" fica vazia.
+- Ficam de fora os 4 itens que a TACO publica como "em análise" (`*`): iogurte sabor abacaxi, leite de vaca
+  integral, leite desnatado UHT e coco verde. Os leites entram como alimentos **de rótulo** com valores típicos —
+  ajuste pelo rótulo do seu leite em **Ajustes**.
+- Aguardente e cerveja têm calorias que não fecham com os macros: vêm do álcool, como na TACO.
+- O carregamento é idempotente: atualiza pelo nome, não duplica e não sobrescreve alimentos cadastrados por rótulo.
+
+Outras tabelas podem ser importadas por CSV `nome;kcal;proteina;carboidrato;gordura;fibra` (vírgula decimal):
 
 ```bash
-curl -F "arquivo=@taco.csv" "http://localhost:5080/api/alimentos/importar?fonte=Taco"
+curl -b cookies.txt -F "arquivo=@tabela.csv" "http://localhost:5080/api/alimentos/importar?fonte=Taco"
 ```
 
 ## API
