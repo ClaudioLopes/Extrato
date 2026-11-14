@@ -5,7 +5,7 @@ namespace Extrato.Domain.Regras;
 
 /// <summary>
 /// Normalização e similaridade por trigramas (equivalente ao pg_trgm, feito em memória
-/// porque o SQL Server não tem extensão de trigramas).
+/// porque o SQLite não tem extensão de trigramas; também roda no aparelho no modo offline).
 /// </summary>
 public static class TextoBusca
 {

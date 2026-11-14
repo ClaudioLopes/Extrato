@@ -41,7 +41,7 @@ public class VisaoComPessoas : IVisionProvider
         Task.FromResult(new AnaliseAparelhoResultado("Supino", "Peito", "Anilha", true, []));
 }
 
-/// <summary>Fluxos da Application com EF InMemory + seed real + FakeVisionProvider.</summary>
+/// <summary>Fluxos da Application com SQLite em memória + seed real + FakeVisionProvider.</summary>
 public class FluxosTests : IAsyncLifetime
 {
     private readonly ExtratoDbContext _db;
@@ -50,8 +50,7 @@ public class FluxosTests : IAsyncLifetime
 
     public FluxosTests()
     {
-        var options = new DbContextOptionsBuilder<ExtratoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
-        _db = new ExtratoDbContext(options);
+        _db = BancoTeste.Criar();
     }
 
     public Task InitializeAsync() => SemeadorDados.SemearAsync(_db, _relogio);

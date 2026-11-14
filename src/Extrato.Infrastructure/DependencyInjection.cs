@@ -37,7 +37,8 @@ public static class DependencyInjection
     {
         var conn = config.GetConnectionString("Extrato")
             ?? throw new InvalidOperationException("ConnectionStrings:Extrato não configurada.");
-        services.AddDbContext<ExtratoDbContext>(o => o.UseSqlServer(conn, sql => sql.EnableRetryOnFailure(5)));
+        CriarPastaDoBanco(conn);
+        services.AddDbContext<ExtratoDbContext>(o => o.UseSqlite(conn));
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<ExtratoDbContext>());
 
         services.AddSingleton<IUsuarioAtual, UsuarioPadrao>();
@@ -98,11 +99,22 @@ public static class DependencyInjection
         }
     }
 
+    /// <summary>O SQLite cria o arquivo, mas não a pasta (ex.: /data/extrato.db no volume).</summary>
+    private static void CriarPastaDoBanco(string conn)
+    {
+        var arquivo = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(conn).DataSource;
+        if (string.IsNullOrWhiteSpace(arquivo) || arquivo == ":memory:") return;
+        var pasta = Path.GetDirectoryName(Path.GetFullPath(arquivo));
+        if (!string.IsNullOrEmpty(pasta)) Directory.CreateDirectory(pasta);
+    }
+
     public static async Task InicializarBancoAsync(this IServiceProvider sp, CancellationToken ct = default)
     {
         using var scope = sp.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ExtratoDbContext>();
         await db.Database.MigrateAsync(ct);
+        // WAL: leituras não esperam a escrita e o arquivo aguenta melhor uma queda no meio de uma gravação
+        await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;", ct);
         await SemeadorDados.SemearAsync(db, scope.ServiceProvider.GetRequiredService<IRelogio>(), ct);
     }
 }

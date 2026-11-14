@@ -3,7 +3,6 @@ using System;
 using Extrato.Infrastructure.Dados;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -16,24 +15,18 @@ namespace Extrato.Infrastructure.Dados.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.15")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
-
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.15");
 
             modelBuilder.Entity("Extrato.Domain.Entidades.Academia", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -44,29 +37,27 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateOnly>("Data")
-                        .HasColumnType("date");
+                        .HasColumnType("TEXT");
 
                     b.Property<int?>("GetEstimado")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("KcalAnterior")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("KcalNova")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Motivo")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("UsuarioId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -79,42 +70,36 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    b.Property<double>("Carbo100g")
+                        .HasColumnType("REAL");
 
-                    b.Property<decimal>("Carbo100g")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
-
-                    b.Property<decimal?>("Fibra100g")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double?>("Fibra100g")
+                        .HasColumnType("REAL");
 
                     b.Property<int>("Fonte")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
-                    b.Property<decimal>("Gordura100g")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double>("Gordura100g")
+                        .HasColumnType("REAL");
 
-                    b.Property<decimal>("Kcal100g")
+                    b.Property<double>("Kcal100g")
                         .HasPrecision(7, 2)
-                        .HasColumnType("decimal(7,2)");
+                        .HasColumnType("REAL");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("NomeNormalizado")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                        .HasColumnType("TEXT");
 
-                    b.Property<decimal>("Proteina100g")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double>("Proteina100g")
+                        .HasColumnType("REAL");
 
                     b.HasKey("Id");
 
@@ -128,19 +113,17 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("INTEGER");
 
                     b.Property<int?>("AlimentoId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Termo")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("UsuarioId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -154,11 +137,11 @@ namespace Extrato.Infrastructure.Dados.Migrations
             modelBuilder.Entity("Extrato.Domain.Entidades.AlimentoSinonimo", b =>
                 {
                     b.Property<int>("AlimentoId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Termo")
                         .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("AlimentoId", "Termo");
 
@@ -171,34 +154,31 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("AcademiaId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Exercicio")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("GrupoMuscular")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("nvarchar(60)");
+                        .HasColumnType("TEXT");
 
-                    b.Property<decimal?>("IncrementoKg")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double?>("IncrementoKg")
+                        .HasColumnType("REAL");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("TipoCarga")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -211,40 +191,38 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("DataHora")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Descricao")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("TEXT");
 
                     b.Property<int?>("DistanciaM")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("DuracaoMin")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int?>("FcMedia")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("KcalAtivas")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int?>("KcalTotais")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Origem")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Tipo")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("UsuarioId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -256,56 +234,56 @@ namespace Extrato.Infrastructure.Dados.Migrations
             modelBuilder.Entity("Extrato.Domain.Entidades.ConfiguracaoRegras", b =>
                 {
                     b.Property<int>("UsuarioId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int?>("AjusteKcal")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("AtividadesNaMeta")
-                        .HasColumnType("bit");
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("CicloTreinoAtivo")
-                        .HasColumnType("bit");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("DiasTreino")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)");
+                        .HasColumnType("TEXT");
 
-                    b.Property<decimal?>("FatorAtividade")
+                    b.Property<double?>("FatorAtividade")
                         .HasPrecision(5, 3)
-                        .HasColumnType("decimal(5,3)");
+                        .HasColumnType("REAL");
 
-                    b.Property<decimal>("GorduraGPorKg")
+                    b.Property<double>("GorduraGPorKg")
                         .HasPrecision(4, 2)
-                        .HasColumnType("decimal(4,2)");
+                        .HasColumnType("REAL");
 
                     b.Property<int>("HoraAlertaProteina")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("KcalExtraDiaTreino")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("PercentualKcalAtividade")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("PesosRefeicao")
                         .IsRequired()
                         .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasColumnType("TEXT");
 
-                    b.Property<decimal>("PisoRefeicao")
+                    b.Property<double>("PisoRefeicao")
                         .HasPrecision(4, 2)
-                        .HasColumnType("decimal(4,2)");
+                        .HasColumnType("REAL");
 
-                    b.Property<decimal>("ProteinaGPorKg")
+                    b.Property<double>("ProteinaGPorKg")
                         .HasPrecision(4, 2)
-                        .HasColumnType("decimal(4,2)");
+                        .HasColumnType("REAL");
 
                     b.Property<string>("Travas")
                         .IsRequired()
                         .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("UsuarioId");
 
@@ -315,23 +293,23 @@ namespace Extrato.Infrastructure.Dados.Migrations
             modelBuilder.Entity("Extrato.Domain.Entidades.Credencial", b =>
                 {
                     b.Property<int>("UsuarioId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("AtualizadaEm")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CriadaEm")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Login")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("nvarchar(60)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("SenhaHash")
                         .IsRequired()
                         .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("UsuarioId");
 
@@ -345,46 +323,40 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("AlimentoId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
-                    b.Property<decimal>("CarboG")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double>("CarboG")
+                        .HasColumnType("REAL");
 
-                    b.Property<decimal?>("ConfiancaIA")
+                    b.Property<double?>("ConfiancaIA")
                         .HasPrecision(3, 2)
-                        .HasColumnType("decimal(3,2)");
+                        .HasColumnType("REAL");
 
                     b.Property<bool>("EditadoPeloUsuario")
-                        .HasColumnType("bit");
+                        .HasColumnType("INTEGER");
 
-                    b.Property<decimal>("GorduraG")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double>("GorduraG")
+                        .HasColumnType("REAL");
 
-                    b.Property<decimal>("Gramas")
+                    b.Property<double>("Gramas")
                         .HasPrecision(7, 1)
-                        .HasColumnType("decimal(7,1)");
+                        .HasColumnType("REAL");
 
-                    b.Property<decimal?>("GramasSugeridasIA")
+                    b.Property<double?>("GramasSugeridasIA")
                         .HasPrecision(7, 1)
-                        .HasColumnType("decimal(7,1)");
+                        .HasColumnType("REAL");
 
-                    b.Property<decimal>("Kcal")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double>("Kcal")
+                        .HasColumnType("REAL");
 
-                    b.Property<decimal>("ProteinaG")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double>("ProteinaG")
+                        .HasColumnType("REAL");
 
                     b.Property<int>("RefeicaoId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -399,39 +371,34 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("CinturaCm")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double>("CinturaCm")
+                        .HasColumnType("REAL");
 
                     b.Property<DateOnly>("Data")
-                        .HasColumnType("date");
+                        .HasColumnType("TEXT");
 
-                    b.Property<decimal?>("GorduraFotoMaxPercent")
+                    b.Property<double?>("GorduraFotoMaxPercent")
                         .HasPrecision(4, 1)
-                        .HasColumnType("decimal(4,1)");
+                        .HasColumnType("REAL");
 
-                    b.Property<decimal?>("GorduraFotoMinPercent")
+                    b.Property<double?>("GorduraFotoMinPercent")
                         .HasPrecision(4, 1)
-                        .HasColumnType("decimal(4,1)");
+                        .HasColumnType("REAL");
 
                     b.Property<string>("ObservacaoCorporal")
                         .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                        .HasColumnType("TEXT");
 
-                    b.Property<decimal>("PescocoCm")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double>("PescocoCm")
+                        .HasColumnType("REAL");
 
-                    b.Property<decimal?>("QuadrilCm")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double?>("QuadrilCm")
+                        .HasColumnType("REAL");
 
                     b.Property<int>("UsuarioId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -444,36 +411,31 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("CarboG")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double>("CarboG")
+                        .HasColumnType("REAL");
 
                     b.Property<DateTime>("CriadaEm")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("TEXT");
 
-                    b.Property<decimal>("GorduraG")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double>("GorduraG")
+                        .HasColumnType("REAL");
 
                     b.Property<int>("Kcal")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Origem")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
-                    b.Property<decimal>("ProteinaG")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double>("ProteinaG")
+                        .HasColumnType("REAL");
 
                     b.Property<int>("UsuarioId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateOnly>("VigenteDesde")
-                        .HasColumnType("date");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -486,20 +448,18 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("TEXT");
 
                     b.Property<int?>("TipoSugerido")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("UsuarioId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -512,19 +472,16 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("AlimentoId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
-                    b.Property<decimal>("Gramas")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double>("Gramas")
+                        .HasColumnType("REAL");
 
                     b.Property<int>("PorcaoFavoritaId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -539,28 +496,26 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("DataHora")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("DescricaoUsuario")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid?>("IdCliente")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("Origem")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Tipo")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("UsuarioId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -568,7 +523,7 @@ namespace Extrato.Infrastructure.Dados.Migrations
 
                     b.HasIndex("UsuarioId", "IdCliente")
                         .IsUnique()
-                        .HasFilter("[IdCliente] IS NOT NULL");
+                        .HasFilter("\"IdCliente\" IS NOT NULL");
 
                     b.ToTable("Refeicao", (string)null);
                 });
@@ -577,19 +532,17 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateOnly>("Data")
-                        .HasColumnType("date");
+                        .HasColumnType("TEXT");
 
-                    b.Property<decimal>("PesoKg")
+                    b.Property<double>("PesoKg")
                         .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
+                        .HasColumnType("REAL");
 
                     b.Property<int>("UsuarioId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -603,14 +556,12 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("nvarchar(60)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -621,27 +572,25 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("AparelhoId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Ordem")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("RepsMax")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("RepsMin")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("RotinaId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("SeriesAlvo")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -656,37 +605,35 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("AparelhoId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
-                    b.Property<decimal>("CargaKg")
+                    b.Property<double>("CargaKg")
                         .HasPrecision(6, 2)
-                        .HasColumnType("decimal(6,2)");
+                        .HasColumnType("REAL");
 
                     b.Property<Guid?>("IdCliente")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("Ordem")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Reps")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int?>("RepsNaReserva")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("SessaoId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
                     b.HasIndex("IdCliente")
                         .IsUnique()
-                        .HasFilter("[IdCliente] IS NOT NULL");
+                        .HasFilter("\"IdCliente\" IS NOT NULL");
 
                     b.HasIndex("SessaoId");
 
@@ -699,22 +646,20 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("DataHora")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid?>("IdCliente")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Observacao")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("TEXT");
 
                     b.Property<int?>("RotinaId")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -722,7 +667,7 @@ namespace Extrato.Infrastructure.Dados.Migrations
 
                     b.HasIndex("IdCliente")
                         .IsUnique()
-                        .HasFilter("[IdCliente] IS NOT NULL");
+                        .HasFilter("\"IdCliente\" IS NOT NULL");
 
                     b.HasIndex("RotinaId");
 
@@ -732,28 +677,27 @@ namespace Extrato.Infrastructure.Dados.Migrations
             modelBuilder.Entity("Extrato.Domain.Entidades.Usuario", b =>
                 {
                     b.Property<int>("Id")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
-                    b.Property<decimal>("AlturaCm")
-                        .HasPrecision(9, 2)
-                        .HasColumnType("decimal(9,2)");
+                    b.Property<double>("AlturaCm")
+                        .HasColumnType("REAL");
 
                     b.Property<DateOnly>("DataNascimento")
-                        .HasColumnType("date");
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("NivelAtividade")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("Objetivo")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Sexo")
-                        .HasColumnType("int");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 

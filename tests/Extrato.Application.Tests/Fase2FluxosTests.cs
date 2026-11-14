@@ -14,8 +14,7 @@ namespace Extrato.Application.Tests;
 
 public class Fase2FluxosTests : IAsyncLifetime
 {
-    private readonly ExtratoDbContext _db = new(new DbContextOptionsBuilder<ExtratoDbContext>()
-        .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+    private readonly ExtratoDbContext _db = BancoTeste.Criar();
     // sexta-feira, 13h
     private readonly RelogioFixo _relogio = new(new DateTime(2026, 11, 13, 13, 0, 0));
     private readonly UsuarioPadrao _usuario = new();

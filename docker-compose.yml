@@ -1,45 +1,22 @@
-# Demo completa sem chave de API: SQL Server + Extrato com FakeVisionProvider.
+# Demo completa sem chave de API: o Extrato com SQLite (arquivo no volume) e FakeVisionProvider.
 #   docker compose up --build   ->  http://localhost:8080
 # Para usar o Claude: ANTHROPIC_API_KEY=... docker compose up --build  (ou GEMINI_API_KEY=... para o Gemini)
 services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "${SA_PASSWORD:-Extrato_Demo_2026!}"
-      MSSQL_PID: Developer
-    ports:
-      - "${SQL_PORTA:-14333}:1433"
-    volumes:
-      - sqldata:/var/opt/mssql
-    healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q 'SELECT 1' || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 20s
-
   extrato:
     build: .
-    depends_on:
-      sqlserver:
-        condition: service_healthy
     environment:
-      ConnectionStrings__Extrato: "Server=sqlserver,1433;Database=Extrato;User Id=sa;Password=${SA_PASSWORD:-Extrato_Demo_2026!};TrustServerCertificate=True"
       Claude__ApiKey: "${ANTHROPIC_API_KEY:-}"
       Gemini__ApiKey: "${GEMINI_API_KEY:-}"
       Extrato__FusoHorario: "America/Sao_Paulo"
       # primeiro acesso de fora do container exige este código
       Auth__CodigoConfiguracao: "${AUTH_CODIGO:-}"
-      # chaves do cookie de sessão persistidas (login sobrevive a reinícios)
-      Auth__PastaChaves: "/home/app/chaves"
       # demo local em http; em produção use HTTPS e remova esta linha
       Auth__CookieSomenteHttps: "false"
     volumes:
-      - chaves:/home/app/chaves
+      # banco SQLite (extrato.db) e chaves do cookie de sessão: sobrevivem a reinícios e rebuilds
+      - dados:/data
     ports:
       - "${EXTRATO_PORTA:-8080}:8080"
 
 volumes:
-  sqldata:
-  chaves:
+  dados:

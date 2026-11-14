@@ -13,8 +13,7 @@ namespace Extrato.Application.Tests;
 /// <summary>Modo offline: idempotência no servidor, catálogo e painel recalculado no aparelho.</summary>
 public class OfflineTests : IAsyncLifetime
 {
-    private readonly ExtratoDbContext _db = new(new DbContextOptionsBuilder<ExtratoDbContext>()
-        .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+    private readonly ExtratoDbContext _db = BancoTeste.Criar();
     private readonly RelogioFixo _relogio = new(new DateTime(2026, 11, 13, 13, 0, 0));
     private readonly UsuarioPadrao _usuario = new();
 

@@ -32,7 +32,9 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
 
     protected override void ConfigureConventions(ModelConfigurationBuilder b)
     {
-        b.Properties<decimal>().HavePrecision(9, 2);
+        // SQLite não tem decimal: guardado como TEXT, não dá para comparar, ordenar nem somar na consulta.
+        // Como REAL (double) funciona em SQL; os valores do app (kcal, gramas, kg) cabem com folga na precisão.
+        b.Properties<decimal>().HaveConversion<double>();
         b.Properties<string>().HaveMaxLength(200);
     }
 
@@ -54,7 +56,8 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
             e.Property(x => x.ProteinaGPorKg).HasPrecision(4, 2);
             e.Property(x => x.GorduraGPorKg).HasPrecision(4, 2);
             e.Property(x => x.FatorAtividade).HasPrecision(5, 3);
-            e.Property(x => x.PisoRefeicao).HasPrecision(4, 2);            // PesosRefeicao e Travas em JSON (nvarchar), como no modelo da doc
+            e.Property(x => x.PisoRefeicao).HasPrecision(4, 2);
+            // PesosRefeicao e Travas em JSON (texto), como no modelo da doc
             e.Property(x => x.DiasTreino).HasMaxLength(40).HasConversion(
                 v => string.Join(",", v.Select(d => (int)d)),
                 v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => (DayOfWeek)int.Parse(x)).ToList(),
@@ -128,7 +131,7 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
             e.ToTable("Refeicao");
             e.Property(x => x.DescricaoUsuario).HasMaxLength(500);
             e.HasIndex(x => new { x.UsuarioId, x.DataHora });
-            e.HasIndex(x => new { x.UsuarioId, x.IdCliente }).IsUnique().HasFilter("[IdCliente] IS NOT NULL");
+            e.HasIndex(x => new { x.UsuarioId, x.IdCliente }).IsUnique().HasFilter("\"IdCliente\" IS NOT NULL");
             e.HasOne<Usuario>().WithMany().HasForeignKey(x => x.UsuarioId);
             e.HasMany(x => x.Itens).WithOne().HasForeignKey(x => x.RefeicaoId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -199,7 +202,7 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
             e.ToTable("SessaoTreino");
             e.Property(x => x.Observacao).HasMaxLength(500);
             e.HasIndex(x => x.DataHora);
-            e.HasIndex(x => x.IdCliente).IsUnique().HasFilter("[IdCliente] IS NOT NULL");
+            e.HasIndex(x => x.IdCliente).IsUnique().HasFilter("\"IdCliente\" IS NOT NULL");
             e.HasOne(x => x.Rotina).WithMany().HasForeignKey(x => x.RotinaId).OnDelete(DeleteBehavior.SetNull);
             e.HasMany(x => x.Series).WithOne(x => x.Sessao).HasForeignKey(x => x.SessaoId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -210,7 +213,7 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
             e.Property(x => x.CargaKg).HasPrecision(6, 2);
             e.HasOne(x => x.Aparelho).WithMany().HasForeignKey(x => x.AparelhoId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => new { x.AparelhoId, x.SessaoId });
-            e.HasIndex(x => x.IdCliente).IsUnique().HasFilter("[IdCliente] IS NOT NULL");
+            e.HasIndex(x => x.IdCliente).IsUnique().HasFilter("\"IdCliente\" IS NOT NULL");
         });
 
         b.Entity<Atividade>(e =>

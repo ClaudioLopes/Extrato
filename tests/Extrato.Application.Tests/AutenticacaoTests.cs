@@ -10,8 +10,7 @@ namespace Extrato.Application.Tests;
 public class AutenticacaoTests : IAsyncLifetime
 {
     private const string SenhaBoa = "morango-whey-2026";
-    private readonly ExtratoDbContext _db = new(new DbContextOptionsBuilder<ExtratoDbContext>()
-        .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+    private readonly ExtratoDbContext _db = BancoTeste.Criar();
 
     public Task InitializeAsync() => SemeadorDados.SemearAsync(_db, new RelogioFixo(new DateTime(2026, 11, 13, 9, 0, 0)));
     public Task DisposeAsync() => _db.DisposeAsync().AsTask();

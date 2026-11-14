@@ -15,9 +15,9 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "Academia",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Nome = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Nome = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -28,16 +28,16 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "Alimento",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Nome = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
-                    NomeNormalizado = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
-                    Fonte = table.Column<int>(type: "int", nullable: false),
-                    Kcal100g = table.Column<decimal>(type: "decimal(7,2)", precision: 7, scale: 2, nullable: false),
-                    Proteina100g = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false),
-                    Carbo100g = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false),
-                    Gordura100g = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false),
-                    Fibra100g = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: true)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Nome = table.Column<string>(type: "TEXT", maxLength: 150, nullable: false),
+                    NomeNormalizado = table.Column<string>(type: "TEXT", maxLength: 150, nullable: false),
+                    Fonte = table.Column<int>(type: "INTEGER", nullable: false),
+                    Kcal100g = table.Column<double>(type: "REAL", precision: 7, scale: 2, nullable: false),
+                    Proteina100g = table.Column<double>(type: "REAL", nullable: false),
+                    Carbo100g = table.Column<double>(type: "REAL", nullable: false),
+                    Gordura100g = table.Column<double>(type: "REAL", nullable: false),
+                    Fibra100g = table.Column<double>(type: "REAL", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -48,9 +48,9 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "Rotina",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Nome = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Nome = table.Column<string>(type: "TEXT", maxLength: 60, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -61,13 +61,13 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "Usuario",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false),
-                    Nome = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: false),
-                    Sexo = table.Column<int>(type: "int", nullable: false),
-                    DataNascimento = table.Column<DateOnly>(type: "date", nullable: false),
-                    AlturaCm = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false),
-                    NivelAtividade = table.Column<int>(type: "int", nullable: false),
-                    Objetivo = table.Column<int>(type: "int", nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false),
+                    Nome = table.Column<string>(type: "TEXT", maxLength: 80, nullable: false),
+                    Sexo = table.Column<int>(type: "INTEGER", nullable: false),
+                    DataNascimento = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    AlturaCm = table.Column<double>(type: "REAL", nullable: false),
+                    NivelAtividade = table.Column<int>(type: "INTEGER", nullable: false),
+                    Objetivo = table.Column<int>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -78,14 +78,14 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "Aparelho",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    AcademiaId = table.Column<int>(type: "int", nullable: false),
-                    Nome = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Exercicio = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    GrupoMuscular = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
-                    TipoCarga = table.Column<int>(type: "int", nullable: false),
-                    IncrementoKg = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: true)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    AcademiaId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Nome = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    Exercicio = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    GrupoMuscular = table.Column<string>(type: "TEXT", maxLength: 60, nullable: false),
+                    TipoCarga = table.Column<int>(type: "INTEGER", nullable: false),
+                    IncrementoKg = table.Column<double>(type: "REAL", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -102,8 +102,8 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "AlimentoSinonimo",
                 columns: table => new
                 {
-                    AlimentoId = table.Column<int>(type: "int", nullable: false),
-                    Termo = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false)
+                    AlimentoId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Termo = table.Column<string>(type: "TEXT", maxLength: 150, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -120,11 +120,12 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "SessaoTreino",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    DataHora = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    RotinaId = table.Column<int>(type: "int", nullable: true),
-                    Observacao = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    IdCliente = table.Column<Guid>(type: "TEXT", nullable: true),
+                    DataHora = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    RotinaId = table.Column<int>(type: "INTEGER", nullable: true),
+                    Observacao = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -141,14 +142,14 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "AjusteMeta",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    UsuarioId = table.Column<int>(type: "int", nullable: false),
-                    Data = table.Column<DateOnly>(type: "date", nullable: false),
-                    KcalAnterior = table.Column<int>(type: "int", nullable: false),
-                    KcalNova = table.Column<int>(type: "int", nullable: false),
-                    GetEstimado = table.Column<int>(type: "int", nullable: true),
-                    Motivo = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    UsuarioId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Data = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    KcalAnterior = table.Column<int>(type: "INTEGER", nullable: false),
+                    KcalNova = table.Column<int>(type: "INTEGER", nullable: false),
+                    GetEstimado = table.Column<int>(type: "INTEGER", nullable: true),
+                    Motivo = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -165,11 +166,11 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "AlimentoEvitado",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    UsuarioId = table.Column<int>(type: "int", nullable: false),
-                    AlimentoId = table.Column<int>(type: "int", nullable: true),
-                    Termo = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    UsuarioId = table.Column<int>(type: "INTEGER", nullable: false),
+                    AlimentoId = table.Column<int>(type: "INTEGER", nullable: true),
+                    Termo = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -189,18 +190,51 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Atividade",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    UsuarioId = table.Column<int>(type: "INTEGER", nullable: false),
+                    DataHora = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    Tipo = table.Column<int>(type: "INTEGER", nullable: false),
+                    Descricao = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
+                    DuracaoMin = table.Column<int>(type: "INTEGER", nullable: false),
+                    KcalAtivas = table.Column<int>(type: "INTEGER", nullable: false),
+                    KcalTotais = table.Column<int>(type: "INTEGER", nullable: true),
+                    DistanciaM = table.Column<int>(type: "INTEGER", nullable: true),
+                    FcMedia = table.Column<int>(type: "INTEGER", nullable: true),
+                    Origem = table.Column<int>(type: "INTEGER", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Atividade", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Atividade_Usuario_UsuarioId",
+                        column: x => x.UsuarioId,
+                        principalTable: "Usuario",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ConfiguracaoRegras",
                 columns: table => new
                 {
-                    UsuarioId = table.Column<int>(type: "int", nullable: false),
-                    ProteinaGPorKg = table.Column<decimal>(type: "decimal(4,2)", precision: 4, scale: 2, nullable: false),
-                    GorduraGPorKg = table.Column<decimal>(type: "decimal(4,2)", precision: 4, scale: 2, nullable: false),
-                    AjusteKcal = table.Column<int>(type: "int", nullable: true),
-                    FatorAtividade = table.Column<decimal>(type: "decimal(5,3)", precision: 5, scale: 3, nullable: true),
-                    PesosRefeicao = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: false),
-                    Travas = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: false),
-                    HoraAlertaProteina = table.Column<int>(type: "int", nullable: false),
-                    PisoRefeicao = table.Column<decimal>(type: "decimal(4,2)", precision: 4, scale: 2, nullable: false)
+                    UsuarioId = table.Column<int>(type: "INTEGER", nullable: false),
+                    ProteinaGPorKg = table.Column<double>(type: "REAL", precision: 4, scale: 2, nullable: false),
+                    GorduraGPorKg = table.Column<double>(type: "REAL", precision: 4, scale: 2, nullable: false),
+                    AjusteKcal = table.Column<int>(type: "INTEGER", nullable: true),
+                    FatorAtividade = table.Column<double>(type: "REAL", precision: 5, scale: 3, nullable: true),
+                    PesosRefeicao = table.Column<string>(type: "TEXT", maxLength: 400, nullable: false),
+                    Travas = table.Column<string>(type: "TEXT", maxLength: 400, nullable: false),
+                    HoraAlertaProteina = table.Column<int>(type: "INTEGER", nullable: false),
+                    PisoRefeicao = table.Column<double>(type: "REAL", precision: 4, scale: 2, nullable: false),
+                    CicloTreinoAtivo = table.Column<bool>(type: "INTEGER", nullable: false),
+                    KcalExtraDiaTreino = table.Column<int>(type: "INTEGER", nullable: false),
+                    DiasTreino = table.Column<string>(type: "TEXT", maxLength: 40, nullable: false),
+                    AtividadesNaMeta = table.Column<bool>(type: "INTEGER", nullable: false),
+                    PercentualKcalAtividade = table.Column<int>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -214,17 +248,40 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Credencial",
+                columns: table => new
+                {
+                    UsuarioId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Login = table.Column<string>(type: "TEXT", maxLength: 60, nullable: false),
+                    SenhaHash = table.Column<string>(type: "TEXT", maxLength: 400, nullable: false),
+                    CriadaEm = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    AtualizadaEm = table.Column<DateTime>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Credencial", x => x.UsuarioId);
+                    table.ForeignKey(
+                        name: "FK_Credencial_Usuario_UsuarioId",
+                        column: x => x.UsuarioId,
+                        principalTable: "Usuario",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Medidas",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    UsuarioId = table.Column<int>(type: "int", nullable: false),
-                    Data = table.Column<DateOnly>(type: "date", nullable: false),
-                    CinturaCm = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false),
-                    PescocoCm = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false),
-                    QuadrilCm = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: true),
-                    ObservacaoCorporal = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    UsuarioId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Data = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    CinturaCm = table.Column<double>(type: "REAL", nullable: false),
+                    PescocoCm = table.Column<double>(type: "REAL", nullable: false),
+                    QuadrilCm = table.Column<double>(type: "REAL", nullable: true),
+                    ObservacaoCorporal = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
+                    GorduraFotoMinPercent = table.Column<double>(type: "REAL", precision: 4, scale: 1, nullable: true),
+                    GorduraFotoMaxPercent = table.Column<double>(type: "REAL", precision: 4, scale: 1, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -241,16 +298,16 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "MetaDiaria",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    UsuarioId = table.Column<int>(type: "int", nullable: false),
-                    VigenteDesde = table.Column<DateOnly>(type: "date", nullable: false),
-                    Kcal = table.Column<int>(type: "int", nullable: false),
-                    ProteinaG = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false),
-                    CarboG = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false),
-                    GorduraG = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false),
-                    Origem = table.Column<int>(type: "int", nullable: false),
-                    CriadaEm = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    UsuarioId = table.Column<int>(type: "INTEGER", nullable: false),
+                    VigenteDesde = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    Kcal = table.Column<int>(type: "INTEGER", nullable: false),
+                    ProteinaG = table.Column<double>(type: "REAL", nullable: false),
+                    CarboG = table.Column<double>(type: "REAL", nullable: false),
+                    GorduraG = table.Column<double>(type: "REAL", nullable: false),
+                    Origem = table.Column<int>(type: "INTEGER", nullable: false),
+                    CriadaEm = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -267,11 +324,11 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "PorcaoFavorita",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    UsuarioId = table.Column<int>(type: "int", nullable: false),
-                    Nome = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    TipoSugerido = table.Column<int>(type: "int", nullable: true)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    UsuarioId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Nome = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    TipoSugerido = table.Column<int>(type: "INTEGER", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -288,13 +345,14 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "Refeicao",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    UsuarioId = table.Column<int>(type: "int", nullable: false),
-                    DataHora = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    Tipo = table.Column<int>(type: "int", nullable: false),
-                    Origem = table.Column<int>(type: "int", nullable: false),
-                    DescricaoUsuario = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    UsuarioId = table.Column<int>(type: "INTEGER", nullable: false),
+                    DataHora = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    Tipo = table.Column<int>(type: "INTEGER", nullable: false),
+                    Origem = table.Column<int>(type: "INTEGER", nullable: false),
+                    DescricaoUsuario = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
+                    IdCliente = table.Column<Guid>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -311,11 +369,11 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "RegistroPeso",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    UsuarioId = table.Column<int>(type: "int", nullable: false),
-                    Data = table.Column<DateOnly>(type: "date", nullable: false),
-                    PesoKg = table.Column<decimal>(type: "decimal(5,2)", precision: 5, scale: 2, nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    UsuarioId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Data = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    PesoKg = table.Column<double>(type: "REAL", precision: 5, scale: 2, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -332,14 +390,14 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "RotinaItem",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    RotinaId = table.Column<int>(type: "int", nullable: false),
-                    AparelhoId = table.Column<int>(type: "int", nullable: false),
-                    Ordem = table.Column<int>(type: "int", nullable: false),
-                    SeriesAlvo = table.Column<int>(type: "int", nullable: false),
-                    RepsMin = table.Column<int>(type: "int", nullable: false),
-                    RepsMax = table.Column<int>(type: "int", nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    RotinaId = table.Column<int>(type: "INTEGER", nullable: false),
+                    AparelhoId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Ordem = table.Column<int>(type: "INTEGER", nullable: false),
+                    SeriesAlvo = table.Column<int>(type: "INTEGER", nullable: false),
+                    RepsMin = table.Column<int>(type: "INTEGER", nullable: false),
+                    RepsMax = table.Column<int>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -362,14 +420,15 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "Serie",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    SessaoId = table.Column<int>(type: "int", nullable: false),
-                    AparelhoId = table.Column<int>(type: "int", nullable: false),
-                    Ordem = table.Column<int>(type: "int", nullable: false),
-                    CargaKg = table.Column<decimal>(type: "decimal(6,2)", precision: 6, scale: 2, nullable: false),
-                    Reps = table.Column<int>(type: "int", nullable: false),
-                    RepsNaReserva = table.Column<int>(type: "int", nullable: true)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    IdCliente = table.Column<Guid>(type: "TEXT", nullable: true),
+                    SessaoId = table.Column<int>(type: "INTEGER", nullable: false),
+                    AparelhoId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Ordem = table.Column<int>(type: "INTEGER", nullable: false),
+                    CargaKg = table.Column<double>(type: "REAL", precision: 6, scale: 2, nullable: false),
+                    Reps = table.Column<int>(type: "INTEGER", nullable: false),
+                    RepsNaReserva = table.Column<int>(type: "INTEGER", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -392,11 +451,11 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "PorcaoFavoritaItem",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    PorcaoFavoritaId = table.Column<int>(type: "int", nullable: false),
-                    AlimentoId = table.Column<int>(type: "int", nullable: false),
-                    Gramas = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    PorcaoFavoritaId = table.Column<int>(type: "INTEGER", nullable: false),
+                    AlimentoId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Gramas = table.Column<double>(type: "REAL", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -419,18 +478,18 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "ItemRefeicao",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    RefeicaoId = table.Column<int>(type: "int", nullable: false),
-                    AlimentoId = table.Column<int>(type: "int", nullable: false),
-                    Gramas = table.Column<decimal>(type: "decimal(7,1)", precision: 7, scale: 1, nullable: false),
-                    Kcal = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false),
-                    ProteinaG = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false),
-                    CarboG = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false),
-                    GorduraG = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false),
-                    GramasSugeridasIA = table.Column<decimal>(type: "decimal(7,1)", precision: 7, scale: 1, nullable: true),
-                    ConfiancaIA = table.Column<decimal>(type: "decimal(3,2)", precision: 3, scale: 2, nullable: true),
-                    EditadoPeloUsuario = table.Column<bool>(type: "bit", nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    RefeicaoId = table.Column<int>(type: "INTEGER", nullable: false),
+                    AlimentoId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Gramas = table.Column<double>(type: "REAL", precision: 7, scale: 1, nullable: false),
+                    Kcal = table.Column<double>(type: "REAL", nullable: false),
+                    ProteinaG = table.Column<double>(type: "REAL", nullable: false),
+                    CarboG = table.Column<double>(type: "REAL", nullable: false),
+                    GorduraG = table.Column<double>(type: "REAL", nullable: false),
+                    GramasSugeridasIA = table.Column<double>(type: "REAL", precision: 7, scale: 1, nullable: true),
+                    ConfiancaIA = table.Column<double>(type: "REAL", precision: 3, scale: 2, nullable: true),
+                    EditadoPeloUsuario = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -481,6 +540,17 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 column: "AcademiaId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Atividade_UsuarioId_DataHora",
+                table: "Atividade",
+                columns: new[] { "UsuarioId", "DataHora" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Credencial_Login",
+                table: "Credencial",
+                column: "Login",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ItemRefeicao_AlimentoId",
                 table: "ItemRefeicao",
                 column: "AlimentoId");
@@ -521,6 +591,13 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 columns: new[] { "UsuarioId", "DataHora" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Refeicao_UsuarioId_IdCliente",
+                table: "Refeicao",
+                columns: new[] { "UsuarioId", "IdCliente" },
+                unique: true,
+                filter: "\"IdCliente\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_RegistroPeso_UsuarioId_Data",
                 table: "RegistroPeso",
                 columns: new[] { "UsuarioId", "Data" },
@@ -542,6 +619,13 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 columns: new[] { "AparelhoId", "SessaoId" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Serie_IdCliente",
+                table: "Serie",
+                column: "IdCliente",
+                unique: true,
+                filter: "\"IdCliente\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Serie_SessaoId",
                 table: "Serie",
                 column: "SessaoId");
@@ -550,6 +634,13 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "IX_SessaoTreino_DataHora",
                 table: "SessaoTreino",
                 column: "DataHora");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SessaoTreino_IdCliente",
+                table: "SessaoTreino",
+                column: "IdCliente",
+                unique: true,
+                filter: "\"IdCliente\" IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_SessaoTreino_RotinaId",
@@ -570,7 +661,13 @@ namespace Extrato.Infrastructure.Dados.Migrations
                 name: "AlimentoSinonimo");
 
             migrationBuilder.DropTable(
+                name: "Atividade");
+
+            migrationBuilder.DropTable(
                 name: "ConfiguracaoRegras");
+
+            migrationBuilder.DropTable(
+                name: "Credencial");
 
             migrationBuilder.DropTable(
                 name: "ItemRefeicao");

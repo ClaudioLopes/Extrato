@@ -31,6 +31,6 @@ jobs:
     needs: build-test
     steps:
       - uses: actions/checkout@v5
-      # sobe o compose (SQL Server + app) e confere páginas, modo offline, acesso e reinício
+      # sobe o compose (app + SQLite no volume) e confere páginas, modo offline, acesso e reinício
       - name: Imagem e smoke test do container
         run: bash scripts/smoke-docker.sh

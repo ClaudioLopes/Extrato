@@ -2,12 +2,11 @@
 # Smoke test do app publicado: sobe o docker compose num projeto separado e confere o que só quebra em execução
 # (os testes de unidade não pegam): index.html com os nomes com hash, arquivos que o service worker guarda para o
 # modo offline, API protegida, primeiro acesso com código e login que sobrevive ao reinício do container.
-#   bash scripts/smoke-docker.sh            (usa as portas 18080 e 14334; apaga tudo ao terminar)
+#   bash scripts/smoke-docker.sh            (usa a porta 18080; apaga tudo ao terminar)
 set -uo pipefail
 
 PROJETO=${PROJETO:-extrato-smoke}
 export EXTRATO_PORTA=${EXTRATO_PORTA:-18080}
-export SQL_PORTA=${SQL_PORTA:-14334}
 export AUTH_CODIGO=codigo-smoke-123
 URL="http://localhost:$EXTRATO_PORTA"
 TMP=$(mktemp -d)
@@ -93,6 +92,13 @@ if dc logs --no-color extrato 2>&1 | grep -qiE 'access to the path .* denied|fai
 else
     ok "chaves da sessão gravadas sem erro"
 fi
+
+echo "== volume e usuário"
+# PID 1 é o app depois do setpriv do entrypoint: não pode ser root
+uid=$(dc exec -T extrato sh -c 'awk "/^Uid:/{print \$2}" /proc/1/status')
+if [ -n "$uid" ] && [ "$uid" != 0 ]; then ok "app roda sem root (uid $uid)"; else falha "app rodando como root (uid '$uid')"; fi
+# caminho dentro do sh -c: o Git Bash no Windows não converte para caminho do Windows
+if dc exec -T extrato sh -c 'test -s /data/extrato.db'; then ok "banco SQLite gravado no volume"; else falha "banco SQLite fora do volume /data"; fi
 
 echo
 if [ "$falhas" -gt 0 ]; then

@@ -17,11 +17,14 @@ WORKDIR /app
 # tzdata: o "dia" do painel usa o fuso America/Sao_Paulo
 RUN apt-get update && apt-get install -y --no-install-recommends tzdata && apt-get clean
 ENV ASPNETCORE_HTTP_PORTS=8080 \
-    TZ=America/Sao_Paulo
+    TZ=America/Sao_Paulo \
+    ConnectionStrings__Extrato="Data Source=/data/extrato.db" \
+    Auth__PastaChaves=/data/chaves
 COPY --from=build /app .
-# pasta das chaves do cookie de sessão (volume): precisa ser do usuário do app, não do root;
-# o Docker copia dono e permissão para o volume nomeado na primeira montagem
-RUN mkdir -p /home/app/chaves && chown $APP_UID:$APP_UID /home/app/chaves && chmod 700 /home/app/chaves
-USER $APP_UID
+# /data (volume) guarda o banco SQLite e as chaves do cookie de sessão. O entrypoint começa como root só
+# para dar /data ao usuário do app (volumes do Fly.io chegam como root) e roda o app sem root (setpriv).
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && chmod 755 /usr/local/bin/docker-entrypoint.sh && mkdir -p /data
+VOLUME /data
 EXPOSE 8080
-ENTRYPOINT ["dotnet", "Extrato.Api.dll"]
+ENTRYPOINT ["docker-entrypoint.sh"]

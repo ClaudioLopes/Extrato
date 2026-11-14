@@ -15,8 +15,7 @@ namespace Extrato.Application.Tests;
 /// <summary>Treino offline: idempotência da sessão e das séries, sessão iniciada sem internet e recálculo no aparelho.</summary>
 public class TreinoOfflineTests : IAsyncLifetime
 {
-    private readonly ExtratoDbContext _db = new(new DbContextOptionsBuilder<ExtratoDbContext>()
-        .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+    private readonly ExtratoDbContext _db = BancoTeste.Criar();
     private readonly RelogioFixo _relogio = new(new DateTime(2026, 11, 14, 18, 0, 0));
     private Aparelho _legPress = null!;
     private Aparelho _supino = null!;

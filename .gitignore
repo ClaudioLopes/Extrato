@@ -22,3 +22,8 @@ appsettings.*.local.json
 ## SO
 Thumbs.db
 .DS_Store
+
+# banco SQLite local
+*.db
+*.db-wal
+*.db-shm

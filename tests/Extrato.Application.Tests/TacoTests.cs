@@ -12,7 +12,7 @@ public class TacoTests
     private static readonly IReadOnlyList<SemeadorDados.LinhaTaco> Taco = SemeadorDados.LerTaco();
 
     private static ExtratoDbContext NovoDb() =>
-        new(new DbContextOptionsBuilder<ExtratoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        BancoTeste.Criar();
 
     [Fact]
     public void Tabela_completa_tem_593_alimentos_com_numeros_unicos()

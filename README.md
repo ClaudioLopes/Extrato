@@ -5,7 +5,7 @@ refeições por **foto + descrição** e ajusta o restante do dia pelo que já f
 
 > Metáfora de extrato bancário: cada refeição e cada treino é um lançamento, e o painel mostra o **saldo do dia**.
 
-**Stack:** .NET 10 · ASP.NET Core Minimal APIs · Clean Architecture · EF Core + **SQL Server** ·
+**Stack:** .NET 10 · ASP.NET Core Minimal APIs · Clean Architecture · EF Core + **SQLite** ·
 Blazor WebAssembly (PWA) · Claude ou Gemini (visão) atrás de `IVisionProvider` · xUnit + FluentAssertions · Docker · GitHub Actions.
 
 ## Princípios
@@ -14,7 +14,7 @@ Blazor WebAssembly (PWA) · Claude ou Gemini (visão) atrás de `IVisionProvider
 - **A IA sugere, o usuário confirma.** Nada estimado entra no saldo sem confirmação.
 - **Macros vêm da tabela, não da IA** — TACO ou rótulo ([ADR 0002](docs/adr/0002-macros-da-taco.md)).
 - **Meta do dia estável, ajuste pela tendência semanal** ([ADR 0003](docs/adr/0003-meta-semanal.md)).
-- **SQL Server** no lugar do PostgreSQL; busca por trigramas em C# ([ADR 0004](docs/adr/0004-sql-server-e-imagem-sem-dependencia-nativa.md)).
+- **SQLite** num arquivo: um usuário, uma máquina, um volume ([ADR 0005](docs/adr/0005-sqlite-no-lugar-do-sql-server.md)); busca por trigramas em C# ([ADR 0004](docs/adr/0004-sql-server-e-imagem-sem-dependencia-nativa.md)).
 
 ## Arquitetura
 
@@ -34,7 +34,7 @@ flowchart LR
       R[Regras puras<br/>Mifflin-St Jeor · macros · distribuição<br/>ajuste semanal · Epley · Marinha]
     end
     subgraph Infra[Extrato.Infrastructure]
-      DB[(SQL Server<br/>EF Core)]
+      DB[(SQLite<br/>EF Core)]
       C[ClaudeVisionProvider<br/>SDK oficial Anthropic]
       G[GeminiVisionProvider<br/>retry 429 + backoff]
       F[FakeVisionProvider<br/>demo offline]
@@ -52,7 +52,7 @@ flowchart LR
 | `Extrato.Domain` | Entidades e **regras de cálculo puras** (sem dependências) |
 | `Extrato.Contracts` | DTOs compartilhados entre API e Blazor |
 | `Extrato.Application` | Casos de uso, match de alimentos, contratos de IA/imagem/banco |
-| `Extrato.Infrastructure` | EF Core/SQL Server, migrações, seed, Claude, Gemini, Fake, sanitizador, job |
+| `Extrato.Infrastructure` | EF Core/SQLite, migrações, seed, Claude, Gemini, Fake, sanitizador, job |
 | `Extrato.Api` | Endpoints, validação, ProblemDetails; hospeda o Blazor |
 | `Extrato.Web` | Front Blazor WebAssembly instalável (PWA) |
 
@@ -64,18 +64,17 @@ flowchart LR
 docker compose up --build
 ```
 
-Abra http://localhost:8080. Sobe SQL Server + app com `FakeVisionProvider`, que interpreta a descrição
+Abra http://localhost:8080. Sobe o app (banco SQLite no volume `dados`) com `FakeVisionProvider`, que interpreta a descrição
 ("2 conchas de arroz, filé ~150 g") e devolve um rascunho plausível — dá para testar o fluxo inteiro sem chave.
 
-### Local (SQL Server Express/LocalDB)
+### Local
 
 ```bash
 dotnet run --project src/Extrato.Api
 ```
 
 Abra http://localhost:5012 (perfil `http` de `launchSettings.json`; o perfil `https` usa https://localhost:7148).
-A connection string padrão está em `src/Extrato.Api/appsettings.json` (`localhost\SQLEXPRESS`, autenticação Windows).
-Para LocalDB: `Server=(localdb)\MSSQLLocalDB;Database=Extrato;Trusted_Connection=True`.
+O banco é o arquivo `src/Extrato.Api/extrato.db` (connection string em `appsettings.json`); não precisa instalar nada.
 As migrações e o seed (perfil inicial, TACO completa, favoritos) rodam na inicialização.
 
 ### IA de visão: Claude (recomendado) ou Gemini

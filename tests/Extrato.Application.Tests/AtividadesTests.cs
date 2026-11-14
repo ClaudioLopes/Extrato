@@ -28,8 +28,7 @@ public class VisaoSoTotais : IVisionProvider
 /// <summary>Atividades (natação, vôlei…): leitura do print, registro e efeito na meta do dia e no ajuste semanal.</summary>
 public class AtividadesTests : IAsyncLifetime
 {
-    private readonly ExtratoDbContext _db = new(new DbContextOptionsBuilder<ExtratoDbContext>()
-        .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+    private readonly ExtratoDbContext _db = BancoTeste.Criar();
     // logo depois da natação do print (13/11 20:06): a meta do seed vale a partir deste dia
     private readonly RelogioFixo _relogio = new(new DateTime(2026, 11, 13, 21, 0, 0));
     private readonly UsuarioPadrao _usuario = new();
