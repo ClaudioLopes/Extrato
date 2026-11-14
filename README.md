@@ -73,9 +73,10 @@ Abra http://localhost:8080. Sobe SQL Server + app com `FakeVisionProvider`, que 
 dotnet run --project src/Extrato.Api
 ```
 
+Abra http://localhost:5012 (perfil `http` de `launchSettings.json`; o perfil `https` usa https://localhost:7148).
 A connection string padrão está em `src/Extrato.Api/appsettings.json` (`localhost\SQLEXPRESS`, autenticação Windows).
 Para LocalDB: `Server=(localdb)\MSSQLLocalDB;Database=Extrato;Trusted_Connection=True`.
-As migrações e o seed (perfil inicial, amostra da TACO, favoritos) rodam na inicialização.
+As migrações e o seed (perfil inicial, TACO completa, favoritos) rodam na inicialização.
 
 ### IA de visão: Claude (recomendado) ou Gemini
 
@@ -190,8 +191,11 @@ kcal, proteína, carboidrato, gordura e fibra por 100 g, em `src/Extrato.Infrast
 Outras tabelas podem ser importadas por CSV `nome;kcal;proteina;carboidrato;gordura;fibra` (vírgula decimal):
 
 ```bash
-curl -b cookies.txt -F "arquivo=@tabela.csv" "http://localhost:5080/api/alimentos/importar?fonte=Taco"
+curl -b cookies.txt -F "arquivo=@tabela.csv" "http://localhost:8080/api/alimentos/importar?fonte=Taco"
 ```
+
+(`8080` no Docker; com `dotnet run`, `5012`. O `cookies.txt` é o do login: `curl -c cookies.txt -H "Content-Type: application/json"
+-d '{"login":"...","senha":"..."}' http://localhost:8080/api/auth/login`.)
 
 ## API
 
