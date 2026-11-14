@@ -130,6 +130,32 @@ public class ClaudeVisionProvider : IVisionProvider
     private record PratoJson(List<ItemJson>? Itens, List<string>? Alertas);
     private record AparelhoJson(string? Exercicio, string? GrupoMuscular, string? TipoCarga, bool HaPessoas, List<string>? Alertas);
 
+    private static readonly Dictionary<string, JsonElement> SchemaAtividade = Schema(new
+    {
+        type = "object",
+        additionalProperties = false,
+        required = new[] { "ehResumoDeAtividade", "tipo", "descricao", "dataHora", "duracaoSegundos", "kcalAtivas", "kcalTotais", "distanciaM", "fcMedia", "alertas" },
+        properties = new
+        {
+            ehResumoDeAtividade = new { type = "boolean" },
+            tipo = new { type = "string", @enum = AtividadeJson.Tipos },
+            descricao = new { type = "string" },
+            dataHora = new { type = "string" },
+            duracaoSegundos = new { type = "integer" },
+            kcalAtivas = new { type = "integer" },
+            kcalTotais = new { type = "integer" },
+            distanciaM = new { type = "integer" },
+            fcMedia = new { type = "integer" },
+            alertas = new { type = "array", items = new { type = "string" } }
+        }
+    });
+
+    public async Task<AnaliseAtividadeResultado> AnalisarAtividadeAsync(Stream imagem, CancellationToken ct)
+    {
+        var json = await GerarAsync(AtividadeJson.Prompt, SchemaAtividade, imagem, AtividadeJson.Texto(DateTime.Now), ct);
+        return Desserializar<AtividadeJson>(json).ParaResultado();
+    }
+
     public async Task<AnalisePratoResultado> AnalisarPratoAsync(Stream imagem, string? descricao, TipoRefeicao tipo, CancellationToken ct)
     {
         var texto = $"Refeição: {tipo}." + (string.IsNullOrWhiteSpace(descricao)

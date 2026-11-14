@@ -34,6 +34,11 @@ public partial class FakeVisionProvider : IVisionProvider
             string.IsNullOrWhiteSpace(nome) ? "Leg press 45°" : nome, "Quadríceps", "Anilha", false,
             ["Análise simulada (FakeVisionProvider)."]));
 
+    /// <summary>Demo: devolve um treino de natação típico (o print não é lido de verdade).</summary>
+    public Task<AnaliseAtividadeResultado> AnalisarAtividadeAsync(Stream imagem, CancellationToken ct) =>
+        Task.FromResult(new AnaliseAtividadeResultado(true, "Natacao", null, DateTime.Today.AddHours(7), 50 * 60 + 47,
+            312, 382, 1300, 139, ["Leitura simulada (FakeVisionProvider): confira os números com o seu print."]));
+
     private static readonly Dictionary<string, decimal> Medidas = new(StringComparer.OrdinalIgnoreCase)
     {
         ["concha"] = 70, ["conchas"] = 70, ["colher"] = 25, ["colheres"] = 25, ["escumadeira"] = 90,

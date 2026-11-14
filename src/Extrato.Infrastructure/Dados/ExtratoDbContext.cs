@@ -25,6 +25,7 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
     public DbSet<Rotina> Rotinas => Set<Rotina>();
     public DbSet<SessaoTreino> Sessoes => Set<SessaoTreino>();
     public DbSet<Serie> Series => Set<Serie>();
+    public DbSet<Atividade> Atividades => Set<Atividade>();
     public DbSet<Credencial> Credenciais => Set<Credencial>();
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -53,8 +54,7 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
             e.Property(x => x.ProteinaGPorKg).HasPrecision(4, 2);
             e.Property(x => x.GorduraGPorKg).HasPrecision(4, 2);
             e.Property(x => x.FatorAtividade).HasPrecision(5, 3);
-            e.Property(x => x.PisoRefeicao).HasPrecision(4, 2);
-            // PesosRefeicao e Travas em JSON (nvarchar), como no modelo da doc
+            e.Property(x => x.PisoRefeicao).HasPrecision(4, 2);            // PesosRefeicao e Travas em JSON (nvarchar), como no modelo da doc
             e.Property(x => x.DiasTreino).HasMaxLength(40).HasConversion(
                 v => string.Join(",", v.Select(d => (int)d)),
                 v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => (DayOfWeek)int.Parse(x)).ToList(),
@@ -211,6 +211,14 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
             e.HasOne(x => x.Aparelho).WithMany().HasForeignKey(x => x.AparelhoId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => new { x.AparelhoId, x.SessaoId });
             e.HasIndex(x => x.IdCliente).IsUnique().HasFilter("[IdCliente] IS NOT NULL");
+        });
+
+        b.Entity<Atividade>(e =>
+        {
+            e.ToTable("Atividade");
+            e.Property(x => x.Descricao).HasMaxLength(100);
+            e.HasIndex(x => new { x.UsuarioId, x.DataHora });
+            e.HasOne<Usuario>().WithMany().HasForeignKey(x => x.UsuarioId);
         });
     }
 }

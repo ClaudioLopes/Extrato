@@ -15,6 +15,7 @@ public static class DependencyInjection
         services.AddScoped<PainelService>();
         services.AddScoped<ProgressoService>();
         services.AddScoped<TreinoService>();
+        services.AddScoped<AtividadeService>();
         services.AddScoped<AutenticacaoService>();
         services.AddScoped<CardapioService>();
         services.AddScoped<RelatorioService>();

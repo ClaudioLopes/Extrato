@@ -87,6 +87,32 @@ public class GeminiVisionProvider(HttpClient http, IOptions<GeminiOptions> optio
     }
     """)!.AsObject();
 
+    private static readonly JsonObject SchemaAtividade = JsonNode.Parse("""
+    {
+      "type": "OBJECT",
+      "properties": {
+        "ehResumoDeAtividade": { "type": "BOOLEAN" },
+        "tipo": { "type": "STRING", "enum": ["Natacao", "Volei", "Corrida", "Caminhada", "Ciclismo", "Futebol", "Outra"] },
+        "descricao": { "type": "STRING" },
+        "dataHora": { "type": "STRING" },
+        "duracaoSegundos": { "type": "INTEGER" },
+        "kcalAtivas": { "type": "INTEGER" },
+        "kcalTotais": { "type": "INTEGER" },
+        "distanciaM": { "type": "INTEGER" },
+        "fcMedia": { "type": "INTEGER" },
+        "alertas": { "type": "ARRAY", "items": { "type": "STRING" } }
+      },
+      "required": ["ehResumoDeAtividade", "tipo", "dataHora", "duracaoSegundos", "kcalAtivas", "kcalTotais"]
+    }
+    """)!.AsObject();
+
+    /// <summary>Print de resumo (números da pulseira, sem rosto nem corpo): pode ir ao tier grátis, como a foto do prato.</summary>
+    public async Task<AnaliseAtividadeResultado> AnalisarAtividadeAsync(Stream imagem, CancellationToken ct)
+    {
+        var json = await GerarAsync(AtividadeJson.Prompt, SchemaAtividade, imagem, AtividadeJson.Texto(DateTime.Now), ct);
+        return Desserializar<AtividadeJson>(json).ParaResultado();
+    }
+
     private record ItemJson(string? Nome, string? Preparo, decimal Gramas, decimal Confianca, string? Observacao);
     private record PratoJson(List<ItemJson>? Itens, List<string>? Alertas);
     private record AparelhoJson(string? Exercicio, string? GrupoMuscular, string? TipoCarga, bool HaPessoas, List<string>? Alertas);

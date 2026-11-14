@@ -47,6 +47,8 @@ internal static class Mapeamentos
         CicloTreinoAtivo = r.CicloTreinoAtivo,
         KcalExtraDiaTreino = r.KcalExtraDiaTreino,
         DiasTreino = [.. r.DiasTreino],
+        AtividadesNaMeta = r.AtividadesNaMeta,
+        PercentualKcalAtividade = r.PercentualKcalAtividade,
         PesosRefeicao = new PesosRefeicaoDto
         {
             Cafe = r.PesosRefeicao.Cafe, Almoco = r.PesosRefeicao.Almoco,

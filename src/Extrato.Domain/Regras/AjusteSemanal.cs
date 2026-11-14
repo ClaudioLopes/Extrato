@@ -11,7 +11,9 @@ public record EntradaAjusteSemanal(
     IReadOnlyDictionary<DateOnly, decimal> IngestaoKcalPorDia,
     DateOnly? UltimoAjuste,
     Travas Travas,
-    string? LeituraTreino = null);
+    string? LeituraTreino = null,
+    /// <summary>Calorias de atividades creditadas na meta de cada dia (descontadas da ingestão ao estimar o GET base).</summary>
+    IReadOnlyDictionary<DateOnly, int>? AtividadeKcalPorDia = null);
 
 public record ResultadoAjusteSemanal(
     bool Ajustar,
@@ -60,10 +62,15 @@ public static class AjusteSemanal
 
         var delta = mmAtual.Value - mmSemanaPassada.Value;
         var ingestaoMedia = diasSemana.Average(kv => kv.Value);
-        var getReal = (int)Math.Round(GetAdaptativo(ingestaoMedia, delta));
+        // a meta base não inclui as atividades registradas (elas somam só no dia): o GET comparado com ela
+        // também não pode incluir, senão o gasto delas entraria duas vezes
+        var atividadeMedia = diasSemana.Average(kv => (decimal)(e.AtividadeKcalPorDia?.GetValueOrDefault(kv.Key) ?? 0));
+        var getReal = (int)Math.Round(GetAdaptativo(ingestaoMedia - atividadeMedia, delta));
         var ritmo = Math.Round(delta / mmSemanaPassada.Value * 100m, 2);
         var faixa = FaixaRitmo(e.Objetivo);
-        var desc = $"Média móvel {mmSemanaPassada:0.0} → {mmAtual:0.0} kg ({ritmo:+0.00;−0.00}%/semana; faixa {faixa.Min:+0.00;−0.00}% a {faixa.Max:+0.00;−0.00}%). Ingestão média {ingestaoMedia:0} kcal, GET estimado {getReal} kcal.";
+        var desc = $"Média móvel {mmSemanaPassada:0.0} → {mmAtual:0.0} kg ({ritmo:+0.00;−0.00}%/semana; faixa {faixa.Min:+0.00;−0.00}% a {faixa.Max:+0.00;−0.00}%). Ingestão média {ingestaoMedia:0} kcal" +
+                   (atividadeMedia > 0 ? $" (das quais {atividadeMedia:0} kcal/dia de atividades registradas, descontadas)" : "") +
+                   $", GET base estimado {getReal} kcal.";
         if (!string.IsNullOrWhiteSpace(e.LeituraTreino)) desc += " " + e.LeituraTreino;
 
         var direcaoAtual = Direcao(ritmo, faixa);

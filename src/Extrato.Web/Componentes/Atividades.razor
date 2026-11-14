@@ -1,0 +1,133 @@
+@using Extrato.Domain.Regras
+@inject ApiClient Api
+
+@* Natação, vôlei e outras atividades fora da musculação: print do resumo da pulseira ou digitadas *@
+<section class="cartao">
+    <h2>Atividades</h2>
+    <p class="suave pequeno">Natação, vôlei, corrida… Mande o print do resumo da atividade (Huawei Health ou outro app):
+        os números são lidos e você confere antes de salvar. O print não é guardado.</p>
+
+    @if (_erro != null) { <div class="erro">@_erro</div> }
+    @if (_sucesso != null) { <div class="ok">@_sucesso</div> }
+
+    @if (_form is null)
+    {
+        <div class="linha campo">
+            <InputFile OnChange="e => _print = e.File" accept="image/*" />
+            <button class="btn primario" disabled="@(_print == null || _ocupado)" @onclick="LerPrint">@(_ocupado ? "Lendo…" : "Ler print")</button>
+            <button class="btn" disabled="@_ocupado" @onclick="Manual">Digitar</button>
+        </div>
+    }
+    else
+    {
+        @foreach (var a in _alertas) { <div class="aviso">@a</div> }
+        <div class="grade-2">
+            <div class="campo"><label>Atividade</label>
+                <select @bind="_form.Tipo">
+                    @foreach (var t in Enum.GetValues<TipoAtividade>()) { <option value="@t">@(t == TipoAtividade.Outra ? "Outra" : t.Nome())</option> }
+                </select>
+            </div>
+            @if (_form.Tipo == TipoAtividade.Outra)
+            {
+                <div class="campo"><label>Qual</label><input @bind="_form.Descricao" placeholder="ex.: beach tennis" /></div>
+            }
+            <div class="campo"><label>Início</label><input type="datetime-local" @bind="_form.DataHora" /></div>
+            <div class="campo"><label>Duração (min)</label><input type="number" @bind="_form.DuracaoMin" /></div>
+            <div class="campo"><label>Calorias ativas (kcal)</label>
+                <input type="number" @bind="_form.KcalAtivas" placeholder="vazio: estimar pela atividade" />
+            </div>
+            <div class="campo"><label>Calorias totais (kcal)</label><input type="number" @bind="_form.KcalTotais" /></div>
+            <div class="campo"><label>Distância (m)</label><input type="number" @bind="_form.DistanciaM" /></div>
+            <div class="campo"><label>FC média (bpm)</label><input type="number" @bind="_form.FcMedia" /></div>
+        </div>
+        <p class="suave pequeno">Entram na meta as calorias <strong>ativas</strong>: as totais incluem o repouso do período, que a meta já conta.</p>
+        <div class="linha">
+            <button class="btn primario" disabled="@_ocupado" @onclick="Salvar">Salvar atividade</button>
+            <button class="btn" disabled="@_ocupado" @onclick="Cancelar">Cancelar</button>
+        </div>
+    }
+
+    @if (_lista.Count > 0)
+    {
+        <h3 style="margin-top:16px">Últimos 30 dias</h3>
+        @foreach (var a in _lista)
+        {
+            <div class="lancamento">
+                <div class="cresce">
+                    <strong>@(a.Descricao ?? a.Tipo.Nome())</strong>
+                    <div class="suave pequeno">@a.DataHora.ToString("dd/MM HH:mm") · @a.DuracaoMin min
+                        @if (a.DistanciaM is { } d) { <span> · @d.ToString("N0") m</span> }
+                        @if (a.FcMedia is { } fc) { <span> · FC @fc</span> }
+                    </div>
+                </div>
+                <span class="suave pequeno numero" style="text-align:right">@a.KcalAtivas kcal ativas
+                    @if (a.KcalNaMeta > 0) { <br /><span>+@a.KcalNaMeta na meta</span> }
+                </span>
+                <button class="btn mini perigo" title="Remover" @onclick="() => Remover(a.Id)">✕</button>
+            </div>
+        }
+    }
+</section>
+
+@code {
+    private IBrowserFile? _print;
+    private NovaAtividadeDto? _form;
+    private List<string> _alertas = [];
+    private List<AtividadeDto> _lista = [];
+    private string? _erro;
+    private string? _sucesso;
+    private bool _ocupado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _lista = await Api.AtividadesAsync(); }
+        catch (Exception) { /* sem conexão e nada salvo: a lista só aparece com internet */ }
+    }
+
+    private async Task LerPrint()
+    {
+        _ocupado = true; _erro = null; _sucesso = null;
+        try
+        {
+            var r = await Api.AnalisarPrintAtividadeAsync(_print!);
+            _form = r.Atividade;
+            _alertas = r.FalhaIA ? [$"IA indisponível: {r.MensagemFalha} Preencha à mão."] : r.Alertas.ToList();
+        }
+        catch (Exception ex) { _erro = ex.Message; }
+        finally { _ocupado = false; }
+    }
+
+    private void Manual()
+    {
+        _erro = null; _sucesso = null; _alertas = [];
+        _form = new NovaAtividadeDto { DataHora = DateTime.Now.AddMinutes(-60), DuracaoMin = 60, Tipo = TipoAtividade.Volei };
+    }
+
+    private void Cancelar()
+    {
+        _form = null; _print = null; _alertas = [];
+    }
+
+    private async Task Salvar()
+    {
+        _ocupado = true; _erro = null;
+        try
+        {
+            var a = await Api.CriarAtividadeAsync(_form!);
+            _sucesso = a.KcalNaMeta > 0
+                ? $"{a.Descricao ?? a.Tipo.Nome()} registrada: +{a.KcalNaMeta} kcal na meta de {a.DataHora:dd/MM}."
+                : $"{a.Descricao ?? a.Tipo.Nome()} registrada.";
+            Cancelar();
+            _lista = await Api.AtividadesAsync();
+        }
+        catch (Exception ex) { _erro = ex.Message; }
+        finally { _ocupado = false; }
+    }
+
+    private async Task Remover(int id)
+    {
+        _erro = null; _sucesso = null;
+        try { await Api.RemoverAtividadeAsync(id); _lista = await Api.AtividadesAsync(); }
+        catch (Exception ex) { _erro = ex.Message; }
+    }
+}

@@ -207,6 +207,52 @@ namespace Extrato.Infrastructure.Dados.Migrations
                     b.ToTable("Aparelho", (string)null);
                 });
 
+            modelBuilder.Entity("Extrato.Domain.Entidades.Atividade", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DataHora")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("DistanciaM")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DuracaoMin")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("FcMedia")
+                        .HasColumnType("int");
+
+                    b.Property<int>("KcalAtivas")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("KcalTotais")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Origem")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId", "DataHora");
+
+                    b.ToTable("Atividade", (string)null);
+                });
+
             modelBuilder.Entity("Extrato.Domain.Entidades.ConfiguracaoRegras", b =>
                 {
                     b.Property<int>("UsuarioId")
@@ -214,6 +260,9 @@ namespace Extrato.Infrastructure.Dados.Migrations
 
                     b.Property<int?>("AjusteKcal")
                         .HasColumnType("int");
+
+                    b.Property<bool>("AtividadesNaMeta")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("CicloTreinoAtivo")
                         .HasColumnType("bit");
@@ -235,6 +284,9 @@ namespace Extrato.Infrastructure.Dados.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("KcalExtraDiaTreino")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PercentualKcalAtividade")
                         .HasColumnType("int");
 
                     b.Property<string>("PesosRefeicao")
@@ -749,6 +801,15 @@ namespace Extrato.Infrastructure.Dados.Migrations
                         .IsRequired();
 
                     b.Navigation("Academia");
+                });
+
+            modelBuilder.Entity("Extrato.Domain.Entidades.Atividade", b =>
+                {
+                    b.HasOne("Extrato.Domain.Entidades.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Extrato.Domain.Entidades.ConfiguracaoRegras", b =>

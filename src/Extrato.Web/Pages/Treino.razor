@@ -23,6 +23,8 @@
 @if (_erro != null) { <div class="erro">@_erro</div> }
 @if (_semana != null) { @foreach (var a in _semana.Alertas) { <div class="aviso">@a</div> } }
 
+<Atividades />
+
 <div class="grade">
     <section class="cartao">
         <h2>Volume da semana</h2>

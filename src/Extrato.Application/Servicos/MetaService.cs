@@ -12,8 +12,31 @@ public class MetaService(IAppDbContext db, IUsuarioAtual usuario, IRelogio relog
         await db.Metas.Where(m => m.UsuarioId == usuario.UsuarioId && m.VigenteDesde <= data)
             .OrderByDescending(m => m.VigenteDesde).ThenByDescending(m => m.Id).FirstOrDefaultAsync(ct);
 
-    /// <summary>Meta efetiva do dia: a base vigente ajustada por dia de treino/descanso (fase 2).</summary>
+    /// <summary>
+    /// Meta efetiva do dia: a base vigente ajustada por dia de treino/descanso (fase 2) e somada
+    /// à parte configurada das calorias das atividades registradas no dia (natação, vôlei…).
+    /// </summary>
     public async Task<MetaDoDia?> MetaDoDiaAsync(DateOnly dia, CancellationToken ct)
+    {
+        var meta = await MetaComCicloAsync(dia, ct);
+        if (meta is null) return null;
+        var regras = await perfil.ObterRegrasAsync(ct);
+        var atividades = await AtividadesAsync(dia, dia, ct);
+        if (atividades.Count == 0) return meta;
+        var credito = GastoAtividades.Credito(atividades.Select(a => a.KcalAtivas), regras);
+        return GastoAtividades.Somar(meta, credito, GastoAtividades.Descrever(atividades.Select(a => a.Tipo)), regras.PercentualKcalAtividade);
+    }
+
+    private async Task<List<(DateOnly Dia, TipoAtividade Tipo, int KcalAtivas)>> AtividadesAsync(DateOnly de, DateOnly ate, CancellationToken ct)
+    {
+        var ini = de.ToDateTime(TimeOnly.MinValue);
+        var fim = ate.AddDays(1).ToDateTime(TimeOnly.MinValue);
+        return (await db.Atividades.Where(a => a.UsuarioId == usuario.UsuarioId && a.DataHora >= ini && a.DataHora < fim)
+                .Select(a => new { a.DataHora, a.Tipo, a.KcalAtivas }).ToListAsync(ct))
+            .Select(a => (DateOnly.FromDateTime(a.DataHora), a.Tipo, a.KcalAtivas)).ToList();
+    }
+
+    private async Task<MetaDoDia?> MetaComCicloAsync(DateOnly dia, CancellationToken ct)
     {
         var meta = await VigenteEmAsync(dia, ct);
         if (meta is null) return null;
@@ -109,10 +132,14 @@ public class MetaService(IAppDbContext db, IUsuarioAtual usuario, IRelogio relog
 
         var tmb = CalculadoraMetas.Tmb(p.Sexo, p.PesoKg, p.AlturaCm, p.Idade);
         var leitura = await treino.LeituraParaAjusteAsync(hoje, ct);
+        // calorias das atividades creditadas na meta de cada dia: o ajuste as desconta da ingestão
+        var atividades = (await AtividadesAsync(hoje.AddDays(-6), hoje, ct))
+            .GroupBy(a => a.Dia)
+            .ToDictionary(g => g.Key, g => GastoAtividades.Credito(g.Select(a => a.KcalAtivas), regras));
 
         var r = AjusteSemanal.Avaliar(new EntradaAjusteSemanal(
             hoje, p.Objetivo, meta.Kcal, tmb,
-            pesos.Select(x => (x.Data, x.PesoKg)).ToList(), ingestao, ultimoAjuste, regras.Travas, leitura));
+            pesos.Select(x => (x.Data, x.PesoKg)).ToList(), ingestao, ultimoAjuste, regras.Travas, leitura, atividades));
 
         if (r.Ajustar)
         {

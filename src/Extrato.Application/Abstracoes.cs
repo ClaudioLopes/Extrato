@@ -24,6 +24,7 @@ public interface IAppDbContext
     DbSet<SessaoTreino> Sessoes { get; }
     DbSet<Serie> Series { get; }
     DbSet<Credencial> Credenciais { get; }
+    DbSet<Atividade> Atividades { get; }
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }
 
@@ -68,7 +69,27 @@ public interface IVisionProvider
 
     Task<AnaliseAparelhoResultado> AnalisarAparelhoAsync(
         Stream imagem, string? nome, CancellationToken ct);
+
+    /// <summary>Lê o print do resumo de uma atividade (app da pulseira). Padrão: provedor sem essa leitura.</summary>
+    Task<AnaliseAtividadeResultado> AnalisarAtividadeAsync(Stream imagem, CancellationToken ct) =>
+        throw new VisionIndisponivelException("Este provedor de IA não lê prints de atividade. Preencha à mão.");
 }
+
+/// <summary>
+/// Números lidos do print do resumo de uma atividade (Huawei Health, Zepp, Samsung Health…).
+/// Tipo: Natacao, Volei, Corrida, Caminhada, Ciclismo, Futebol ou Outra.
+/// </summary>
+public record AnaliseAtividadeResultado(
+    bool EhResumoDeAtividade,
+    string? Tipo,
+    string? Descricao,
+    DateTime? DataHora,
+    int? DuracaoSegundos,
+    int? KcalAtivas,
+    int? KcalTotais,
+    int? DistanciaM,
+    int? FcMedia,
+    IReadOnlyList<string> Alertas);
 
 /// <summary>Falha recuperável da IA (429 esgotado, timeout, JSON inválido): o app cai no registro manual.</summary>
 public class VisionIndisponivelException(string mensagem, Exception? inner = null) : Exception(mensagem, inner);

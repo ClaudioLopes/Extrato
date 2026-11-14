@@ -80,7 +80,7 @@ public class FluxosTests : IAsyncLifetime
     }
 
     /// <summary>JPEG sintético: SOI, APP0/JFIF, APP1/EXIF (com marca), COM, DQT, SOF0, SOS, dados, EOI.</summary>
-    private static MemoryStream ImagemComExif(int largura = 1024, int altura = 768)
+    internal static MemoryStream ImagemComExif(int largura = 1024, int altura = 768)
     {
         byte[] jfif = [.. "JFIF\0"u8, 1, 1, 0, 0, 1, 0, 1, 0, 0];
         byte[] exif = [.. "Exif\0\0"u8, 0x49, 0x49, 0x2A, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, .. System.Text.Encoding.ASCII.GetBytes(MarcaExif)];

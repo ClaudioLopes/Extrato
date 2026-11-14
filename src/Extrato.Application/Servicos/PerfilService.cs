@@ -99,6 +99,8 @@ public class PerfilService(IAppDbContext db, IUsuarioAtual usuario, IRelogio rel
         r.CicloTreinoAtivo = dto.CicloTreinoAtivo;
         r.KcalExtraDiaTreino = dto.KcalExtraDiaTreino;
         r.DiasTreino = dto.DiasTreino.Distinct().OrderBy(d => ((int)d + 6) % 7).ToList();
+        r.AtividadesNaMeta = dto.AtividadesNaMeta;
+        r.PercentualKcalAtividade = dto.PercentualKcalAtividade;
         r.PesosRefeicao = new PesosRefeicao(p.Cafe, p.Almoco, p.Tarde, p.Noite);
         r.Travas = new Travas
         {

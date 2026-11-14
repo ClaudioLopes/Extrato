@@ -327,6 +327,23 @@ public class ApiClient(HttpClient http, SessaoEstado sessao, ArmazenamentoLocal 
         return await Ler<RascunhoAparelhoDto>(await http.PostAsync("api/aparelhos/analisar-foto", form));
     }
 
+    // Atividades (natação, vôlei…): print do resumo da pulseira ou digitadas
+    public async Task<RascunhoAtividadeDto> AnalisarPrintAtividadeAsync(IBrowserFile print)
+    {
+        using var form = new MultipartFormDataContent();
+        // print de tela: redimensiona como as fotos, mas com lado maior para os números continuarem legíveis
+        IBrowserFile arquivo;
+        try { arquivo = await print.RequestImageFileAsync("image/jpeg", 1600, 1600); }
+        catch (Exception) { arquivo = print; }
+        var conteudo = new StreamContent(arquivo.OpenReadStream(TamanhoMaxFoto));
+        conteudo.Headers.ContentType = new MediaTypeHeaderValue(string.IsNullOrEmpty(arquivo.ContentType) ? "image/jpeg" : arquivo.ContentType);
+        form.Add(conteudo, "imagem", "print.jpg");
+        return await Ler<RascunhoAtividadeDto>(await http.PostAsync("api/atividades/analisar-print", form));
+    }
+    public Task<AtividadeDto> CriarAtividadeAsync(NovaAtividadeDto dto) => Send<AtividadeDto>(HttpMethod.Post, "api/atividades", dto);
+    public Task<List<AtividadeDto>> AtividadesAsync() => GetSalvo<List<AtividadeDto>>("api/atividades", "atividades");
+    public Task RemoverAtividadeAsync(int id) => Send<object>(HttpMethod.Delete, $"api/atividades/{id}", null);
+
     // ---------- infraestrutura ----------
 
     private Task<T> Get<T>(string url) => Enviar<T>(new HttpRequestMessage(HttpMethod.Get, url));

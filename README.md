@@ -125,7 +125,7 @@ Fora do modo de desenvolvimento o cookie exige HTTPS: publique atrás de um prox
 dotnet test
 ```
 
-166 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
+179 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
 redistribuição diária com piso, ajuste semanal (GET adaptativo, 2 semanas, 1×/semana), Epley, estagnação, dupla progressão,
 % de gordura (Marinha), busca por trigramas, integridade da TACO, ciclo treino/descanso, cardápio, relatórios, bloqueio da foto do corpo, modo offline (busca, painel e sessão de treino locais iguais ao servidor, idempotência), sanitização de EXIF, escolha do provedor de IA, acesso (primeiro acesso, senha, login), fallback da IA e fluxos completos com EF InMemory.
 
@@ -153,6 +153,20 @@ acesso com código e login que sobrevive ao reinício do container.
   Gemini grátis o botão fica bloqueado e a imagem nunca sai do servidor. Exige consentimento a cada envio, devolve
   uma faixa de % de gordura e observações em texto; só isso é salvo, junto com as medidas. As metas continuam
   usando peso e medidas.
+
+## Atividades da pulseira (natação, vôlei…)
+
+- **Print do resumo** (Treino → Atividades): mande o print da tela de resumo do app da pulseira (Huawei Health,
+  Zepp, Samsung Health…). A IA (Claude ou Gemini) lê tipo, início, duração, calorias ativas e totais, distância e
+  FC média; você confere e salva. O print não é guardado. Sem IA, ou para digitar, há o formulário manual.
+- **Só as calorias ativas entram na meta**: as totais incluem o metabolismo de repouso do período, que o GET já conta.
+  Print só com as totais: o app desconta a TMB proporcional ao tempo. Sem número nenhum: estimativa por MET
+  (Compendium of Physical Activities) com o peso atual.
+- **Meta do dia**: soma uma parte das calorias ativas (padrão 75%, ajustável em Ajustes → Regras, porque pulseiras
+  costumam superestimar), em carboidrato, só no dia da atividade. O painel mostra o ajuste.
+- **Sem contar duas vezes**: o ajuste semanal desconta da ingestão as calorias creditadas pelas atividades antes de
+  estimar o GET base. Com as atividades somando à parte, o nível de atividade do perfil deve cobrir só o dia a dia.
+- O mesmo print enviado de novo (mesmo tipo, mesmo minuto) não cria outra atividade.
 
 ## Modo offline
 
@@ -228,6 +242,8 @@ curl -b cookies.txt -F "arquivo=@tabela.csv" "http://localhost:8080/api/alimento
 | GET/POST | `/api/sessoes/cliente/{idCliente}`, `.../series` | Sessão iniciada offline, pelo id gerado no aparelho |
 | GET | `/api/treino/ultimas-series` | Séries da última sessão de cada aparelho (pré-preenchimento offline) |
 | GET | `/api/evolucao/{aparelhoId}`, `/api/evolucao/semana` | 1RM estimado, recordes, estagnação, volume por grupo |
+| POST | `/api/atividades/analisar-print` | Lê o print do resumo da pulseira (rascunho, nada é salvo) |
+| GET/POST/DELETE | `/api/atividades`, `/api/atividades/{id}` | Atividades (natação, vôlei…) que somam à meta do dia |
 
 Em desenvolvimento o documento OpenAPI fica em `/openapi/v1.json`.
 

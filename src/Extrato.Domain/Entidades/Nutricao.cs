@@ -44,6 +44,10 @@ public class ConfiguracaoRegras
     /// <summary>Dias planejados de treino (dia com sessão registrada também conta).</summary>
     public List<DayOfWeek> DiasTreino { get; set; } =
         [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday];
+    /// <summary>Atividades registradas (natação, vôlei…) somam calorias à meta do dia em que aconteceram.</summary>
+    public bool AtividadesNaMeta { get; set; } = true;
+    /// <summary>Parte das calorias ativas da pulseira que entra na meta (pulseiras costumam superestimar).</summary>
+    public int PercentualKcalAtividade { get; set; } = 75;
 
     public static ConfiguracaoRegras PadraoPara(int usuarioId) => new() { UsuarioId = usuarioId };
 }

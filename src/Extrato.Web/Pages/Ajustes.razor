@@ -92,6 +92,18 @@
                         </div>
                     }
                 </div>
+                <div class="campo">
+                    <label class="linha" style="color:var(--texto)"><InputCheckbox @bind-Value="_regras.AtividadesNaMeta" /> Atividades registradas (natação, vôlei…) somam à meta do dia</label>
+                    @if (_regras.AtividadesNaMeta)
+                    {
+                        <div class="grade-2" style="margin-top:8px">
+                            <div><label>Parte das calorias ativas da pulseira (%)</label><InputNumber @bind-Value="_regras.PercentualKcalAtividade" /></div>
+                            <div class="suave pequeno" style="align-self:end">Pulseiras costumam superestimar; 75% é um meio-termo. O ajuste semanal corrige o resto pelo peso.</div>
+                        </div>
+                        <p class="suave pequeno" style="margin-top:6px">Com as atividades somando à parte, o nível de atividade do perfil deve cobrir só o dia a dia
+                            (sem esses esportes), senão o gasto deles entra duas vezes no começo. O ajuste semanal já desconta as atividades ao estimar o gasto.</p>
+                    }
+                </div>
                 <ValidationSummary />
                 <button class="btn primario" type="submit" disabled="@_ocupado">Salvar regras</button>
             </EditForm>

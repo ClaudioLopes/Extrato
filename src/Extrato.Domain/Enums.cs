@@ -16,3 +16,8 @@ public enum OrigemMeta { Inicial = 1, Manual = 2, Ajuste = 3 }
 public enum FonteAlimento { Taco = 1, Personalizado = 2 }
 
 public enum TipoCarga { Pilha = 1, Anilha = 2, Halter = 3, PesoCorporal = 4 }
+
+/// <summary>Atividades fora da musculação (registradas pelo print da pulseira ou à mão).</summary>
+public enum TipoAtividade { Natacao = 1, Volei = 2, Corrida = 3, Caminhada = 4, Ciclismo = 5, Futebol = 6, Outra = 99 }
+
+public enum OrigemAtividade { Print = 1, Manual = 2 }

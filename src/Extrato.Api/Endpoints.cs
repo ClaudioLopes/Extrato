@@ -142,6 +142,22 @@ public static class Endpoints
             return Results.NoContent();
         });
 
+        // atividades fora da musculação (natação, vôlei…): print do resumo da pulseira ou digitadas
+        api.MapPost("/atividades/analisar-print", async (HttpRequest req, AtividadeService s, CancellationToken ct) =>
+        {
+            RascunhoAtividadeDto? r = null;
+            await LerMultipartAsync(req, ct, (_, _) => { }, async stream => r = await s.AnalisarPrintAsync(stream, ct));
+            return r ?? throw new ValidacaoException("Imagem não enviada.");
+        }).DisableAntiforgery();
+        api.MapGet("/atividades", (DateOnly? de, DateOnly? ate, AtividadeService s, IRelogio r, CancellationToken ct) =>
+            s.ListarAsync(de ?? r.Hoje.AddDays(-29), ate ?? r.Hoje, ct));
+        api.MapPost("/atividades", (NovaAtividadeDto dto, AtividadeService s, CancellationToken ct) => s.CriarAsync(dto, ct));
+        api.MapDelete("/atividades/{id:int}", async (int id, AtividadeService s, CancellationToken ct) =>
+        {
+            await s.RemoverAsync(id, ct);
+            return Results.NoContent();
+        });
+
         api.MapGet("/evolucao/semana", (TreinoService s, CancellationToken ct) => s.SemanaAsync(ct));
         api.MapGet("/evolucao/{aparelhoId:int}", (int aparelhoId, TreinoService s, CancellationToken ct) => s.EvolucaoAsync(aparelhoId, ct));
     }

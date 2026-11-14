@@ -55,7 +55,37 @@ public class RegrasDto
     public bool CicloTreinoAtivo { get; set; }
     [Range(0, 600)] public int KcalExtraDiaTreino { get; set; } = 200;
     public List<DayOfWeek> DiasTreino { get; set; } = [];
+    /// <summary>Atividades registradas (natação, vôlei…) somam à meta do dia.</summary>
+    public bool AtividadesNaMeta { get; set; } = true;
+    [Range(0, 100)] public int PercentualKcalAtividade { get; set; } = 75;
 }
+
+// ---------- Atividades (pulseira) ----------
+
+public class NovaAtividadeDto
+{
+    public DateTime? DataHora { get; set; }
+    public TipoAtividade Tipo { get; set; }
+    [StringLength(100)] public string? Descricao { get; set; }
+    [Range(1, 600)] public int DuracaoMin { get; set; }
+    /// <summary>Vazio: estimado pela tabela MET com o peso atual.</summary>
+    [Range(0, 5000)] public int? KcalAtivas { get; set; }
+    [Range(0, 6000)] public int? KcalTotais { get; set; }
+    [Range(0, 200000)] public int? DistanciaM { get; set; }
+    [Range(30, 230)] public int? FcMedia { get; set; }
+    public OrigemAtividade Origem { get; set; } = OrigemAtividade.Manual;
+}
+
+public record AtividadeDto(int Id, DateTime DataHora, TipoAtividade Tipo, string? Descricao, int DuracaoMin, int KcalAtivas,
+    int? KcalTotais, int? DistanciaM, int? FcMedia, OrigemAtividade Origem, int KcalNaMeta);
+
+/// <summary>Leitura do print para o usuário conferir; nada é gravado até confirmar.</summary>
+public record RascunhoAtividadeDto(
+    NovaAtividadeDto Atividade,
+    bool Reconhecido,
+    IReadOnlyList<string> Alertas,
+    bool FalhaIA,
+    string? MensagemFalha);
 
 // ---------- Metas ----------
 

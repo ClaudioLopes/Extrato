@@ -38,7 +38,13 @@ else
                 @_painel.Restante.Kcal.ToString("0") <span class="unid">kcal</span>
             </div>
             <p class="suave pequeno">Meta @_painel.Meta.Kcal.ToString("0") · consumido @_painel.Consumido.Kcal.ToString("0") kcal
-                @if (_painel.AjusteTreino != null) { <br /><span class="etiqueta">@(_painel.DiaDeTreino ? "dia de treino" : "descanso")</span> @_painel.AjusteTreino }</p>
+                @if (_painel.AjusteTreino != null)
+                {
+                    <br />
+                    @* a etiqueta é do ciclo treino × descanso; ajuste só de atividades (natação, vôlei…) não leva etiqueta *@
+                    @if (_painel.AjusteTreino.StartsWith("Dia de")) { <span class="etiqueta">@(_painel.DiaDeTreino ? "dia de treino" : "descanso")</span> }
+                    @_painel.AjusteTreino
+                }</p>
             <BarraMacro Nome="Calorias" Classe="c-kcal" Unidade="kcal" Meta="_painel.Meta.Kcal" Consumido="_painel.Consumido.Kcal" />
             <BarraMacro Nome="Proteína" Classe="c-prot" Meta="_painel.Meta.ProteinaG" Consumido="_painel.Consumido.ProteinaG" />
             <BarraMacro Nome="Carboidrato" Classe="c-carb" Meta="_painel.Meta.CarboG" Consumido="_painel.Consumido.CarboG" />
