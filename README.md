@@ -124,9 +124,9 @@ Fora do modo de desenvolvimento o cookie exige HTTPS: publique atrás de um prox
 dotnet test
 ```
 
-158 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
+166 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
 redistribuição diária com piso, ajuste semanal (GET adaptativo, 2 semanas, 1×/semana), Epley, estagnação, dupla progressão,
-% de gordura (Marinha), busca por trigramas, integridade da TACO, ciclo treino/descanso, cardápio, relatórios, bloqueio da foto do corpo, modo offline (busca e painel locais iguais ao servidor, idempotência), sanitização de EXIF, escolha do provedor de IA, acesso (primeiro acesso, senha, login), fallback da IA e fluxos completos com EF InMemory.
+% de gordura (Marinha), busca por trigramas, integridade da TACO, ciclo treino/descanso, cardápio, relatórios, bloqueio da foto do corpo, modo offline (busca, painel e sessão de treino locais iguais ao servidor, idempotência), sanitização de EXIF, escolha do provedor de IA, acesso (primeiro acesso, senha, login), fallback da IA e fluxos completos com EF InMemory.
 
 O app publicado tem um smoke test próprio, que roda no CI e localmente com Docker:
 
@@ -159,10 +159,17 @@ acesso com código e login que sobrevive ao reinício do container.
   e as fontes. Em desenvolvimento (`dotnet run`) o app ainda precisa do servidor para abrir.
 - **Ver sem internet:** painel do dia, perfil, regras, favoritos, progresso e o catálogo completo de alimentos ficam
   salvos no aparelho. A busca offline usa a mesma pontuação do servidor (código compartilhado no domínio).
+  No treino: aparelhos, rotinas, sessões recentes, volume da semana e as sessões já abertas.
 - **Lançar sem internet:** refeição (manual, favorito) e peso entram numa fila; o painel recalcula saldo e alvos no
   aparelho com o mesmo algoritmo do servidor. A fila é enviada quando a rede volta (evento do navegador, a cada 30 s
   ou pelo botão "Enviar agora"). Cada lançamento leva um `IdCliente`: reenvios não duplicam.
-- **Precisam de internet:** fotos (IA), cardápio, relatórios, treino e alterações de perfil/regras/favoritos.
+- **Treino sem internet:** dá para iniciar uma sessão (da rotina ou avulsa) e lançar séries, inclusive se a rede cair
+  no meio de uma sessão já aberta. A sessão é montada no aparelho com a rotina e as séries da última sessão de cada
+  aparelho (salvas ao abrir o app com internet), e 1RM e volume do dia são recalculados com as mesmas regras do servidor.
+  Séries pendentes aparecem com ⏳ e podem ser removidas antes do envio; a fila manda a sessão antes das séries, com a
+  hora em que ela foi iniciada.
+- **Precisam de internet:** fotos (IA), cardápio, relatórios, cadastro de aparelhos e rotinas, evolução por aparelho,
+  remover série já enviada e alterações de perfil/regras/favoritos.
 - **Privacidade:** a API nunca passa pelo cache do service worker; os dados salvos no aparelho são apagados ao sair
   (com confirmação se houver lançamentos não enviados).
 
@@ -214,6 +221,8 @@ curl -b cookies.txt -F "arquivo=@tabela.csv" "http://localhost:5080/api/alimento
 | POST | `/api/aparelhos/analisar-foto` | Foto → rascunho do aparelho (descartado se houver pessoas) |
 | POST/GET | `/api/sessoes`, `/api/sessoes/{id}` | Sessão com séries pré-preenchidas e comparação |
 | POST | `/api/sessoes/{id}/series` | Registrar série |
+| GET/POST | `/api/sessoes/cliente/{idCliente}`, `.../series` | Sessão iniciada offline, pelo id gerado no aparelho |
+| GET | `/api/treino/ultimas-series` | Séries da última sessão de cada aparelho (pré-preenchimento offline) |
 | GET | `/api/evolucao/{aparelhoId}`, `/api/evolucao/semana` | 1RM estimado, recordes, estagnação, volume por grupo |
 
 Em desenvolvimento o documento OpenAPI fica em `/openapi/v1.json`.

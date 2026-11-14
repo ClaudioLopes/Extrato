@@ -200,20 +200,125 @@ public class ApiClient(HttpClient http, SessaoEstado sessao, ArmazenamentoLocal 
     public Task<MedidaDto> RegistrarMedidasAsync(NovasMedidasDto dto) => Send<MedidaDto>(HttpMethod.Post, "api/medidas", dto);
     public Task<ProgressoDto> ProgressoAsync(DateOnly de, DateOnly ate) => GetSalvo<ProgressoDto>($"api/progresso?de={de:yyyy-MM-dd}&ate={ate:yyyy-MM-dd}", "progresso");
 
-    // Treino
-    public Task<List<AcademiaDto>> AcademiasAsync() => Get<List<AcademiaDto>>("api/academias");
+    // Treino (telas salvas no aparelho; sessão e séries funcionam offline pela fila)
+    public Task<List<AcademiaDto>> AcademiasAsync() => GetSalvo<List<AcademiaDto>>("api/academias", "academias");
     public Task<AcademiaDto> CriarAcademiaAsync(NovaAcademiaDto dto) => Send<AcademiaDto>(HttpMethod.Post, "api/academias", dto);
-    public Task<List<AparelhoDto>> AparelhosAsync() => Get<List<AparelhoDto>>("api/aparelhos");
+    public Task<List<AparelhoDto>> AparelhosAsync() => GetSalvo<List<AparelhoDto>>("api/aparelhos", "aparelhos");
     public Task<AparelhoDto> CriarAparelhoAsync(NovoAparelhoDto dto) => Send<AparelhoDto>(HttpMethod.Post, "api/aparelhos", dto);
-    public Task<List<RotinaDto>> RotinasAsync() => Get<List<RotinaDto>>("api/rotinas");
+    public Task<List<RotinaDto>> RotinasAsync() => GetSalvo<List<RotinaDto>>("api/rotinas", "rotinas");
     public Task<RotinaDto> CriarRotinaAsync(NovaRotinaDto dto) => Send<RotinaDto>(HttpMethod.Post, "api/rotinas", dto);
-    public Task<List<SessaoResumoDto>> SessoesAsync() => Get<List<SessaoResumoDto>>("api/sessoes?limite=10");
-    public Task<SessaoDto> IniciarSessaoAsync(NovaSessaoDto dto) => Send<SessaoDto>(HttpMethod.Post, "api/sessoes", dto);
-    public Task<SessaoDto> SessaoAsync(int id) => Get<SessaoDto>($"api/sessoes/{id}");
-    public Task<SerieDto> RegistrarSerieAsync(int sessaoId, NovaSerieDto dto) => Send<SerieDto>(HttpMethod.Post, $"api/sessoes/{sessaoId}/series", dto);
-    public Task RemoverSerieAsync(int sessaoId, int serieId) => Send<object>(HttpMethod.Delete, $"api/sessoes/{sessaoId}/series/{serieId}", null);
+    public Task<List<SessaoResumoDto>> SessoesAsync() => GetSalvo<List<SessaoResumoDto>>("api/sessoes?limite=10", "sessoes");
+    public Task<Dictionary<int, List<SerieDto>>> UltimasSeriesAsync() =>
+        GetSalvo<Dictionary<int, List<SerieDto>>>("api/treino/ultimas-series", "treino:ultimas");
     public Task<EvolucaoAparelhoDto> EvolucaoAsync(int aparelhoId) => Get<EvolucaoAparelhoDto>($"api/evolucao/{aparelhoId}");
-    public Task<EvolucaoSemanaDto> EvolucaoSemanaAsync() => Get<EvolucaoSemanaDto>("api/evolucao/semana");
+    public Task<EvolucaoSemanaDto> EvolucaoSemanaAsync() => GetSalvo<EvolucaoSemanaDto>("api/evolucao/semana", "treino:semana");
+
+    /// <summary>
+    /// Online: cria no servidor. Offline (ou se a rede cair no envio): entra na fila e a sessão é montada
+    /// no aparelho com Id 0; a página a abre pela rota local, com o IdCliente.
+    /// </summary>
+    public async Task<SessaoDto> IniciarSessaoAsync(NovaSessaoDto dto)
+    {
+        dto.IdCliente ??= Guid.NewGuid();
+        if (rede.Online)
+        {
+            try { return await Send<SessaoDto>(HttpMethod.Post, "api/sessoes", dto); }
+            catch (SemConexaoException) { }
+        }
+        dto.DataHora ??= DateTime.Now; // hora do início, não a do envio
+        await Enfileirar(new Pendente(dto.IdCliente.Value, TipoPendente.Sessao, DateTime.Now, null, null, null) { Sessao = dto });
+        return await SessaoLocalAsync(dto.IdCliente.Value);
+    }
+
+    /// <summary>Sessão do servidor (salva no aparelho) mais as séries dela que ainda estão na fila.</summary>
+    public async Task<SessaoDto> SessaoAsync(int id)
+    {
+        var sessao = await GetSalvo<SessaoDto>($"api/sessoes/{id}", $"treino:sessao:{id}");
+        var fila = await LerFila();
+        return await CombinarPendentesAsync(sessao, fila.Where(f => f.SessaoId == id));
+    }
+
+    /// <summary>
+    /// Sessão iniciada offline. Ainda na fila: montada no aparelho (Id 0). Já enviada: a do servidor (Id &gt; 0),
+    /// e a página passa para a rota normal.
+    /// </summary>
+    public async Task<SessaoDto> SessaoLocalAsync(Guid idCliente)
+    {
+        var fila = await LerFila();
+        var pendente = fila.FirstOrDefault(f => f.Tipo == TipoPendente.Sessao && f.Id == idCliente);
+        if (pendente?.Sessao is null)
+            return await Get<SessaoDto>($"api/sessoes/cliente/{idCliente}");
+
+        var rotinas = await LerSalvoAsync<List<RotinaDto>>("rotinas") ?? [];
+        var dto = pendente.Sessao;
+        var sessao = TreinoLocal.NovaSessao(dto.DataHora ?? pendente.CriadoEm, rotinas.FirstOrDefault(r => r.Id == dto.RotinaId),
+            await LerSalvoAsync<List<AparelhoDto>>("aparelhos") ?? [], await UltimasSalvasAsync(), dto.Observacao);
+        return await CombinarPendentesAsync(sessao, fila.Where(f => f.SessaoIdCliente == idCliente));
+    }
+
+    private async Task<SessaoDto> CombinarPendentesAsync(SessaoDto sessao, IEnumerable<Pendente> itens)
+    {
+        // série que o servidor já tem (enviada, mas a fila ainda não foi regravada) não aparece duas vezes
+        var jaNoServidor = sessao.Exercicios.SelectMany(e => e.SeriesHoje).Select(s => s.IdCliente).OfType<Guid>().ToHashSet();
+        var series = itens.Where(f => f.Serie is not null && !jaNoServidor.Contains(f.Serie.IdCliente)).Select(f => f.Serie!).ToList();
+        if (series.Count == 0) return sessao;
+        return TreinoLocal.Combinar(sessao, series, await LerSalvoAsync<List<AparelhoDto>>("aparelhos") ?? [], await UltimasSalvasAsync());
+    }
+
+    private async Task<Dictionary<int, List<SerieDto>>> UltimasSalvasAsync() =>
+        await LerSalvoAsync<Dictionary<int, List<SerieDto>>>("treino:ultimas") ?? [];
+
+    /// <summary>
+    /// Série de uma sessão do servidor (sessaoId &gt; 0) ou de uma iniciada offline (sessaoIdCliente).
+    /// Sem conexão, ou numa sessão que ainda está na fila, a série entra na fila.
+    /// </summary>
+    public async Task RegistrarSerieAsync(int sessaoId, Guid? sessaoIdCliente, NovaSerieDto entrada)
+    {
+        var dto = new NovaSerieDto
+        {
+            AparelhoId = entrada.AparelhoId, CargaKg = entrada.CargaKg, Reps = entrada.Reps,
+            RepsNaReserva = entrada.RepsNaReserva, IdCliente = Guid.NewGuid()
+        };
+        if (sessaoId > 0 && rede.Online)
+        {
+            try { await Send<SerieDto>(HttpMethod.Post, $"api/sessoes/{sessaoId}/series", dto); return; }
+            catch (SemConexaoException) { }
+        }
+        if (sessaoId <= 0 && sessaoIdCliente is null) throw new ApiException("Sessão não encontrada.");
+        var serie = new SeriePendente(dto.IdCliente.Value, dto.AparelhoId, dto.CargaKg, dto.Reps, dto.RepsNaReserva, DateTime.Now);
+        await Enfileirar(new Pendente(serie.IdCliente, TipoPendente.Serie, serie.CriadaEm, null, null, null)
+        {
+            Serie = serie,
+            SessaoId = sessaoId > 0 ? sessaoId : null,
+            SessaoIdCliente = sessaoId > 0 ? null : sessaoIdCliente
+        });
+        // sessão iniciada offline com a rede de volta: envia sessão e série juntas, na ordem
+        if (sessaoId <= 0 && rede.Online) await SincronizarAsync();
+    }
+
+    /// <summary>Série ainda na fila sai só do aparelho; a do servidor precisa de conexão.</summary>
+    public async Task RemoverSerieAsync(int sessaoId, SerieDto serie)
+    {
+        if (serie.Pendente && serie.IdCliente is { } id)
+        {
+            var fila = await LerFila();
+            fila.RemoveAll(f => f.Tipo == TipoPendente.Serie && f.Id == id);
+            await local.GravarAsync("fila", fila);
+            rede.DefinirPendentes(fila.Count);
+            return;
+        }
+        await Send<object>(HttpMethod.Delete, $"api/sessoes/{sessaoId}/series/{serie.Id}", null);
+    }
+
+    /// <summary>Sessões iniciadas offline que ainda não foram enviadas.</summary>
+    public async Task<List<SessaoPendente>> SessoesPendentesAsync()
+    {
+        var fila = await LerFila();
+        return fila.Where(f => f.Tipo == TipoPendente.Sessao && f.Sessao is not null)
+            .Select(f => new SessaoPendente(f.Id, f.Sessao!.DataHora ?? f.CriadoEm, f.Sessao.RotinaId,
+                fila.Count(s => s.SessaoIdCliente == f.Id)))
+            .OrderByDescending(s => s.DataHora).ToList();
+    }
 
     public async Task<RascunhoAparelhoDto> AnalisarAparelhoAsync(IBrowserFile foto, string? nome)
     {
@@ -264,6 +369,8 @@ public class ApiClient(HttpClient http, SessaoEstado sessao, ArmazenamentoLocal 
         }
     }
 
+    private async Task<T?> LerSalvoAsync<T>(string chave) where T : class => (await local.LerAsync<Salvo<T>>(chave))?.Valor;
+
     // ---------- offline: catálogo, fila e sincronização ----------
 
     /// <summary>Baixa o catálogo de alimentos só quando mudou (ETag).</summary>
@@ -283,11 +390,14 @@ public class ApiClient(HttpClient http, SessaoEstado sessao, ArmazenamentoLocal 
         }
     }
 
-    /// <summary>Com conexão, deixa salvo o que o modo offline precisa (catálogo, regras, favoritos, perfil).</summary>
+    /// <summary>
+    /// Com conexão, deixa salvo o que o modo offline precisa: catálogo, regras, favoritos, perfil e, para
+    /// iniciar um treino sem internet, aparelhos, rotinas e as últimas séries de cada aparelho.
+    /// </summary>
     public async Task PrepararOfflineAsync()
     {
         await AtualizarCatalogoAsync();
-        foreach (var carregar in new Func<Task>[] { RegrasAsync, FavoritosAsync, PerfilAsync })
+        foreach (var carregar in new Func<Task>[] { RegrasAsync, FavoritosAsync, PerfilAsync, AparelhosAsync, RotinasAsync, UltimasSeriesAsync })
         {
             try { await carregar(); } catch (ApiException) { /* tenta de novo na próxima abertura */ }
         }
@@ -338,8 +448,7 @@ public class ApiClient(HttpClient http, SessaoEstado sessao, ArmazenamentoLocal 
             {
                 try
                 {
-                    if (p.Tipo == TipoPendente.Refeicao) await Send<RefeicaoDto>(HttpMethod.Post, "api/refeicoes", p.Refeicao);
-                    else await Send<PontoPesoDto>(HttpMethod.Post, "api/peso", p.Peso);
+                    await EnviarPendente(p);
                     fila.Remove(p);
                     enviados++;
                 }
@@ -363,9 +472,29 @@ public class ApiClient(HttpClient http, SessaoEstado sessao, ArmazenamentoLocal 
         return enviados;
     }
 
-    private static string Descrever(Pendente p) => p.Tipo == TipoPendente.Peso
-        ? $"Peso de {p.Peso!.Data:dd/MM}"
-        : $"{p.Refeicao!.Tipo.Nome()} de {p.CriadoEm:dd/MM HH:mm}";
+    /// <summary>A fila vai em ordem: a sessão iniciada offline chega antes das séries dela.</summary>
+    private Task EnviarPendente(Pendente p) => p.Tipo switch
+    {
+        TipoPendente.Refeicao => Send<RefeicaoDto>(HttpMethod.Post, "api/refeicoes", p.Refeicao),
+        TipoPendente.Peso => Send<PontoPesoDto>(HttpMethod.Post, "api/peso", p.Peso),
+        TipoPendente.Sessao => Send<SessaoDto>(HttpMethod.Post, "api/sessoes", p.Sessao),
+        TipoPendente.Serie => Send<SerieDto>(HttpMethod.Post,
+            p.SessaoId is { } id ? $"api/sessoes/{id}/series" : $"api/sessoes/cliente/{p.SessaoIdCliente}/series",
+            new NovaSerieDto
+            {
+                AparelhoId = p.Serie!.AparelhoId, CargaKg = p.Serie.CargaKg, Reps = p.Serie.Reps,
+                RepsNaReserva = p.Serie.RepsNaReserva, IdCliente = p.Serie.IdCliente
+            }),
+        _ => throw new ApiException("Tipo de lançamento desconhecido.", 400)
+    };
+
+    private static string Descrever(Pendente p) => p.Tipo switch
+    {
+        TipoPendente.Peso => $"Peso de {p.Peso!.Data:dd/MM}",
+        TipoPendente.Sessao => $"Sessão de treino de {p.CriadoEm:dd/MM HH:mm}",
+        TipoPendente.Serie => $"Série de {p.Serie!.CargaKg:0.#} kg × {p.Serie.Reps} ({p.CriadoEm:dd/MM HH:mm})",
+        _ => $"{p.Refeicao!.Tipo.Nome()} de {p.CriadoEm:dd/MM HH:mm}"
+    };
 
     private async Task<T> Ler<T>(HttpResponseMessage resp)
     {

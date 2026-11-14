@@ -54,10 +54,23 @@ public class ArmazenamentoLocal(IJSRuntime js)
 /// <summary>Valor salvo com o momento em que veio do servidor.</summary>
 public record Salvo<T>(T Valor, DateTime SalvoEm);
 
-public enum TipoPendente { Refeicao = 1, Peso = 2 }
+public enum TipoPendente { Refeicao = 1, Peso = 2, Sessao = 3, Serie = 4 }
 
 /// <summary>Lançamento feito sem conexão, aguardando envio.</summary>
-public record Pendente(Guid Id, TipoPendente Tipo, DateTime CriadoEm, NovaRefeicaoDto? Refeicao, NovoPesoDto? Peso, RefeicaoDto? Previa);
+public record Pendente(Guid Id, TipoPendente Tipo, DateTime CriadoEm, NovaRefeicaoDto? Refeicao, NovoPesoDto? Peso, RefeicaoDto? Previa)
+{
+    /// <summary>Sessão de treino iniciada offline (Id = IdCliente da sessão).</summary>
+    public NovaSessaoDto? Sessao { get; init; }
+    /// <summary>Série lançada offline (Id = IdCliente da série).</summary>
+    public SeriePendente? Serie { get; init; }
+    /// <summary>Série de uma sessão que já existe no servidor.</summary>
+    public int? SessaoId { get; init; }
+    /// <summary>Série de uma sessão iniciada offline, conhecida só pelo id gerado no aparelho.</summary>
+    public Guid? SessaoIdCliente { get; init; }
+}
+
+/// <summary>Sessão de treino iniciada offline que ainda está na fila (aparece em "Sessões recentes").</summary>
+public record SessaoPendente(Guid IdCliente, DateTime DataHora, int? RotinaId, int Series);
 
 /// <summary>Estado da conexão e da fila, observado pelo layout e pelas páginas.</summary>
 public class RedeEstado

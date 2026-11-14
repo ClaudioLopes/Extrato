@@ -1,5 +1,7 @@
 @page "/treino"
+@implements IDisposable
 @inject ApiClient Api
+@inject RedeEstado Rede
 @inject NavigationManager Nav
 
 <PageTitle>extrato · treino</PageTitle>
@@ -37,6 +39,13 @@
             }
         }
         <h3 style="margin-top:16px">Sessões recentes</h3>
+        @foreach (var s in _pendentes)
+        {
+            <div class="lancamento">
+                <a href="@($"treino/sessao/local/{s.IdCliente}")" class="cresce">@s.DataHora.ToString("dd/MM HH:mm") · @(_rotinas.FirstOrDefault(r => r.Id == s.RotinaId)?.Nome ?? "avulsa")</a>
+                <span class="suave pequeno" title="Salva no aparelho, aguardando conexão">⏳ pendente · @s.Series séries</span>
+            </div>
+        }
         @foreach (var s in _sessoes)
         {
             <div class="lancamento">
@@ -128,6 +137,7 @@
     private List<AcademiaDto> _academias = [];
     private List<RotinaDto> _rotinas = [];
     private List<SessaoResumoDto> _sessoes = [];
+    private List<SessaoPendente> _pendentes = [];
     private EvolucaoSemanaDto? _semana;
     private NovoAparelhoDto _aparelho = new();
     private NovaRotinaDto _rotina = new();
@@ -138,12 +148,21 @@
     private string? _erro;
     private bool _ocupado;
 
-    protected override Task OnInitializedAsync() => Carregar();
+    protected override Task OnInitializedAsync()
+    {
+        Rede.Sincronizou += AoSincronizar;
+        return Carregar();
+    }
+
+    private void AoSincronizar() => _ = InvokeAsync(async () => { await Carregar(); StateHasChanged(); });
+
+    public void Dispose() => Rede.Sincronizou -= AoSincronizar;
 
     private async Task Carregar()
     {
         try
         {
+            _pendentes = await Api.SessoesPendentesAsync();
             _aparelhos = await Api.AparelhosAsync();
             _academias = await Api.AcademiasAsync();
             _rotinas = await Api.RotinasAsync();
@@ -205,7 +224,9 @@
 
     private Task IniciarSessao() => Executar(async () =>
     {
-        var s = await Api.IniciarSessaoAsync(new NovaSessaoDto { RotinaId = _rotinaId });
-        Nav.NavigateTo($"treino/sessao/{s.Id}");
+        var dto = new NovaSessaoDto { RotinaId = _rotinaId };
+        var s = await Api.IniciarSessaoAsync(dto);
+        // sem conexão a sessão fica na fila e abre pela rota local (id gerado no aparelho)
+        Nav.NavigateTo(s.Id > 0 ? $"treino/sessao/{s.Id}" : $"treino/sessao/local/{dto.IdCliente}");
     });
 }

@@ -246,6 +246,10 @@ public class NovaSessaoDto
 {
     public int? RotinaId { get; set; }
     [StringLength(500)] public string? Observacao { get; set; }
+    /// <summary>Gerado no aparelho: o reenvio da fila offline devolve a mesma sessão.</summary>
+    public Guid? IdCliente { get; set; }
+    /// <summary>Hora do início no aparelho (sessão iniciada offline); vazio usa a hora do servidor.</summary>
+    public DateTime? DataHora { get; set; }
 }
 
 public class NovaSerieDto
@@ -254,9 +258,15 @@ public class NovaSerieDto
     [Range(0, 1000)] public decimal CargaKg { get; set; }
     [Range(1, 100)] public int Reps { get; set; }
     [Range(0, 10)] public int? RepsNaReserva { get; set; }
+    /// <summary>Gerado no aparelho: o reenvio da fila offline devolve a mesma série.</summary>
+    public Guid? IdCliente { get; set; }
 }
 
-public record SerieDto(int Id, int AparelhoId, int Ordem, decimal CargaKg, int Reps, int? RepsNaReserva);
+/// <summary>Id 0 com IdCliente: série ainda na fila do aparelho (modo offline).</summary>
+public record SerieDto(int Id, int AparelhoId, int Ordem, decimal CargaKg, int Reps, int? RepsNaReserva, Guid? IdCliente = null)
+{
+    [System.Text.Json.Serialization.JsonIgnore] public bool Pendente => Id == 0;
+}
 
 /// <summary>Séries pré-preenchidas com a última sessão do aparelho.</summary>
 public record ExercicioSessaoDto(

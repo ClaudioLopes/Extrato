@@ -131,6 +131,11 @@ public static class Endpoints
         api.MapPost("/sessoes", (NovaSessaoDto dto, TreinoService s, CancellationToken ct) => s.IniciarSessaoAsync(dto, ct));
         api.MapGet("/sessoes/{id:int}", (int id, TreinoService s, CancellationToken ct) => s.SessaoAsync(id, ct));
         api.MapPost("/sessoes/{id:int}/series", (int id, NovaSerieDto dto, TreinoService s, CancellationToken ct) => s.RegistrarSerieAsync(id, dto, ct));
+        // sessão iniciada offline: a fila do aparelho só conhece o id gerado lá
+        api.MapGet("/sessoes/cliente/{idCliente:guid}", (Guid idCliente, TreinoService s, CancellationToken ct) => s.SessaoPorClienteAsync(idCliente, ct));
+        api.MapPost("/sessoes/cliente/{idCliente:guid}/series", (Guid idCliente, NovaSerieDto dto, TreinoService s, CancellationToken ct) =>
+            s.RegistrarSeriePorClienteAsync(idCliente, dto, ct));
+        api.MapGet("/treino/ultimas-series", (TreinoService s, CancellationToken ct) => s.UltimasSeriesAsync(ct));
         api.MapDelete("/sessoes/{id:int}/series/{serieId:int}", async (int id, int serieId, TreinoService s, CancellationToken ct) =>
         {
             await s.RemoverSerieAsync(id, serieId, ct);

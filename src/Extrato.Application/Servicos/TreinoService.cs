@@ -103,30 +103,74 @@ public class TreinoService(
             MetricasTreino.Volume(s.Series.Select(x => new SerieRegistrada(x.CargaKg, x.Reps)))))
         .ToList();
 
+    /// <summary>Com IdCliente já gravado (reenvio da fila offline), devolve a sessão existente.</summary>
     public async Task<SessaoDto> IniciarSessaoAsync(NovaSessaoDto dto, CancellationToken ct)
     {
+        if (dto.IdCliente is { } idCliente && await db.Sessoes.FirstOrDefaultAsync(s => s.IdCliente == idCliente, ct) is { } existente)
+            return await SessaoAsync(existente.Id, ct);
         if (dto.RotinaId is { } rid && !await db.Rotinas.AnyAsync(r => r.Id == rid, ct))
             throw new ValidacaoException("Rotina inexistente.");
-        var s = new SessaoTreino { DataHora = relogio.Agora, RotinaId = dto.RotinaId, Observacao = dto.Observacao };
+        var s = new SessaoTreino
+        {
+            IdCliente = dto.IdCliente, DataHora = dto.DataHora ?? relogio.Agora, RotinaId = dto.RotinaId, Observacao = dto.Observacao
+        };
         db.Sessoes.Add(s);
         await db.SaveChangesAsync(ct);
         return await SessaoAsync(s.Id, ct);
     }
 
+    /// <summary>Sessão iniciada offline, pelo id gerado no aparelho.</summary>
+    public async Task<SessaoDto> SessaoPorClienteAsync(Guid idCliente, CancellationToken ct)
+    {
+        var id = await db.Sessoes.Where(s => s.IdCliente == idCliente).Select(s => (int?)s.Id).FirstOrDefaultAsync(ct)
+            ?? throw new NaoEncontradoException("Sessão não encontrada.");
+        return await SessaoAsync(id, ct);
+    }
+
     public async Task<SerieDto> RegistrarSerieAsync(int sessaoId, NovaSerieDto dto, CancellationToken ct)
     {
+        if (dto.IdCliente is { } idCliente && await db.Series.FirstOrDefaultAsync(x => x.IdCliente == idCliente, ct) is { } existente)
+            return existente.ParaDto();
         var sessao = await db.Sessoes.Include(s => s.Series).FirstOrDefaultAsync(s => s.Id == sessaoId, ct)
             ?? throw new NaoEncontradoException("Sessão não encontrada.");
         if (!await db.Aparelhos.AnyAsync(a => a.Id == dto.AparelhoId, ct)) throw new ValidacaoException("Aparelho inexistente.");
         var serie = new Serie
         {
-            SessaoId = sessao.Id, AparelhoId = dto.AparelhoId, CargaKg = dto.CargaKg, Reps = dto.Reps,
+            IdCliente = dto.IdCliente, SessaoId = sessao.Id, AparelhoId = dto.AparelhoId, CargaKg = dto.CargaKg, Reps = dto.Reps,
             RepsNaReserva = dto.RepsNaReserva,
             Ordem = sessao.Series.Count(x => x.AparelhoId == dto.AparelhoId) + 1
         };
         db.Series.Add(serie);
         await db.SaveChangesAsync(ct);
         return serie.ParaDto();
+    }
+
+    /// <summary>Série de uma sessão iniciada offline (a fila só conhece o id gerado no aparelho).</summary>
+    public async Task<SerieDto> RegistrarSeriePorClienteAsync(Guid sessaoIdCliente, NovaSerieDto dto, CancellationToken ct)
+    {
+        var id = await db.Sessoes.Where(s => s.IdCliente == sessaoIdCliente).Select(s => (int?)s.Id).FirstOrDefaultAsync(ct)
+            ?? throw new NaoEncontradoException("Sessão não encontrada.");
+        return await RegistrarSerieAsync(id, dto, ct);
+    }
+
+    /// <summary>
+    /// Séries da última sessão de cada aparelho: o aparelho guarda para pré-preencher uma sessão
+    /// iniciada sem internet, como o servidor faria.
+    /// </summary>
+    public async Task<Dictionary<int, List<SerieDto>>> UltimasSeriesAsync(CancellationToken ct)
+    {
+        var ultimas = await db.Series
+            .GroupBy(x => x.AparelhoId)
+            .Select(g => new { AparelhoId = g.Key, DataHora = g.Max(x => x.Sessao!.DataHora) })
+            .ToListAsync(ct);
+        var resultado = new Dictionary<int, List<SerieDto>>();
+        foreach (var u in ultimas)
+        {
+            var series = await db.Series.Where(x => x.AparelhoId == u.AparelhoId && x.Sessao!.DataHora == u.DataHora)
+                .OrderBy(x => x.Ordem).ToListAsync(ct);
+            resultado[u.AparelhoId] = series.Select(x => x.ParaDto()).ToList();
+        }
+        return resultado;
     }
 
     public async Task RemoverSerieAsync(int sessaoId, int serieId, CancellationToken ct)

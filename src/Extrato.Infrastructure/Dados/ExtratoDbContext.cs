@@ -199,6 +199,7 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
             e.ToTable("SessaoTreino");
             e.Property(x => x.Observacao).HasMaxLength(500);
             e.HasIndex(x => x.DataHora);
+            e.HasIndex(x => x.IdCliente).IsUnique().HasFilter("[IdCliente] IS NOT NULL");
             e.HasOne(x => x.Rotina).WithMany().HasForeignKey(x => x.RotinaId).OnDelete(DeleteBehavior.SetNull);
             e.HasMany(x => x.Series).WithOne(x => x.Sessao).HasForeignKey(x => x.SessaoId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -209,6 +210,7 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
             e.Property(x => x.CargaKg).HasPrecision(6, 2);
             e.HasOne(x => x.Aparelho).WithMany().HasForeignKey(x => x.AparelhoId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => new { x.AparelhoId, x.SessaoId });
+            e.HasIndex(x => x.IdCliente).IsUnique().HasFilter("[IdCliente] IS NOT NULL");
         });
     }
 }

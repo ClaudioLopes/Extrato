@@ -1,5 +1,9 @@
 @page "/treino/sessao/{Id:int}"
+@page "/treino/sessao/local/{IdCliente:guid}"
+@implements IDisposable
 @inject ApiClient Api
+@inject RedeEstado Rede
+@inject NavigationManager Nav
 
 <PageTitle>extrato · sessão</PageTitle>
 
@@ -17,6 +21,10 @@ else
         <a class="btn" href="treino">Encerrar</a>
     </div>
 
+    @if (_sessao.Id == 0)
+    {
+        <div class="aviso">Sessão iniciada sem internet: fica salva no aparelho e é enviada, com as séries, quando a conexão voltar.</div>
+    }
     @if (_erro != null) { <div class="erro">@_erro</div> }
 
     @foreach (var ex in _sessao.Exercicios)
@@ -44,7 +52,8 @@ else
                     <span class="etiqueta">@s.Ordem</span>
                     <span class="numero forte">@s.CargaKg.ToString("0.#") kg × @s.Reps</span>
                     @if (s.RepsNaReserva is { } rir) { <span class="suave pequeno">RIR @rir</span> }
-                    <button class="btn mini perigo" @onclick="() => RemoverSerie(s.Id)">✕</button>
+                    @if (s.Pendente) { <span class="suave pequeno" title="Salva no aparelho, aguardando conexão">⏳ pendente</span> }
+                    <button class="btn mini perigo" @onclick="() => RemoverSerie(s)">✕</button>
                 </div>
             }
 
@@ -70,16 +79,31 @@ else
 
 @code {
     [Parameter] public int Id { get; set; }
+    /// <summary>Sessão iniciada offline: id gerado no aparelho até a fila ser enviada.</summary>
+    [Parameter] public Guid? IdCliente { get; set; }
 
     private SessaoDto? _sessao;
     private List<AparelhoDto> _aparelhos = [];
     private readonly Dictionary<int, NovaSerieDto> _entradas = [];
+    private readonly List<AparelhoDto> _avulsos = [];
     private int _avulso;
     private string? _erro;
     private bool _ocupado;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized() => Rede.Sincronizou += AoSincronizar;
+
+    /// <summary>Ao trocar de rota (local → servidor), o parâmetro que não vem na nova rota não pode ficar com o valor antigo.</summary>
+    public override Task SetParametersAsync(ParameterView parameters)
     {
+        Id = 0;
+        IdCliente = null;
+        return base.SetParametersAsync(parameters);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _sessao = null; _erro = null;
+        _entradas.Clear(); _avulsos.Clear();
         try
         {
             _aparelhos = await Api.AparelhosAsync();
@@ -88,7 +112,31 @@ else
         catch (Exception ex) { _erro = ex.Message; }
     }
 
-    private async Task Carregar() => _sessao = await Api.SessaoAsync(Id);
+    private async Task Carregar()
+    {
+        if (IdCliente is { } idCliente)
+        {
+            var s = await Api.SessaoLocalAsync(idCliente);
+            if (s.Id > 0) // a fila já enviou: segue na sessão do servidor
+            {
+                Nav.NavigateTo($"treino/sessao/{s.Id}", replace: true);
+                return;
+            }
+            _sessao = s;
+        }
+        else _sessao = await Api.SessaoAsync(Id);
+
+        // aparelhos avulsos escolhidos e ainda sem série continuam na tela
+        var faltando = _avulsos.Where(a => _sessao.Exercicios.All(e => e.Aparelho.Id != a.Id))
+            .Select(a => new ExercicioSessaoDto(a, null, null, null, [], [], null, null, 0, 0));
+        _sessao = _sessao with { Exercicios = _sessao.Exercicios.Concat(faltando).ToList() };
+    }
+
+    private void AoSincronizar() => _ = InvokeAsync(async () =>
+    {
+        try { await Carregar(); } catch (Exception ex) { _erro = ex.Message; }
+        StateHasChanged();
+    });
 
     /// <summary>Pré-preenche com a série seguinte da última sessão (ou a última feita hoje).</summary>
     private NovaSerieDto Entrada(ExercicioSessaoDto ex)
@@ -107,7 +155,7 @@ else
         _ocupado = true; _erro = null;
         try
         {
-            await Api.RegistrarSerieAsync(Id, entrada);
+            await Api.RegistrarSerieAsync(Id, IdCliente, entrada);
             _entradas.Remove(aparelhoId);
             await Carregar();
             // próxima série parte da que acabou de ser feita
@@ -117,19 +165,24 @@ else
         finally { _ocupado = false; }
     }
 
-    private async Task RemoverSerie(int serieId)
+    private async Task RemoverSerie(SerieDto serie)
     {
-        try { await Api.RemoverSerieAsync(Id, serieId); await Carregar(); }
+        _erro = null;
+        try { await Api.RemoverSerieAsync(Id, serie); await Carregar(); }
+        catch (SemConexaoException) { _erro = "Sem conexão: só dá para remover séries que ainda não foram enviadas."; }
         catch (Exception ex) { _erro = ex.Message; }
     }
 
-    private async Task AdicionarAvulso()
+    private void AdicionarAvulso()
     {
         var a = _aparelhos.First(x => x.Id == _avulso);
         _avulso = 0;
-        var lista = _sessao!.Exercicios.ToList();
-        lista.Add(new ExercicioSessaoDto(a, null, null, null, [], [], null, null, 0, 0));
-        _sessao = _sessao with { Exercicios = lista };
-        await Task.CompletedTask;
+        _avulsos.Add(a);
+        _sessao = _sessao! with
+        {
+            Exercicios = _sessao.Exercicios.Append(new ExercicioSessaoDto(a, null, null, null, [], [], null, null, 0, 0)).ToList()
+        };
     }
+
+    public void Dispose() => Rede.Sincronizou -= AoSincronizar;
 }

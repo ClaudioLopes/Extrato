@@ -615,6 +615,9 @@ namespace Extrato.Infrastructure.Dados.Migrations
                         .HasPrecision(6, 2)
                         .HasColumnType("decimal(6,2)");
 
+                    b.Property<Guid?>("IdCliente")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("Ordem")
                         .HasColumnType("int");
 
@@ -628,6 +631,10 @@ namespace Extrato.Infrastructure.Dados.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IdCliente")
+                        .IsUnique()
+                        .HasFilter("[IdCliente] IS NOT NULL");
 
                     b.HasIndex("SessaoId");
 
@@ -647,6 +654,9 @@ namespace Extrato.Infrastructure.Dados.Migrations
                     b.Property<DateTime>("DataHora")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("IdCliente")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Observacao")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -657,6 +667,10 @@ namespace Extrato.Infrastructure.Dados.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DataHora");
+
+                    b.HasIndex("IdCliente")
+                        .IsUnique()
+                        .HasFilter("[IdCliente] IS NOT NULL");
 
                     b.HasIndex("RotinaId");
 

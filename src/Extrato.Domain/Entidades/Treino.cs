@@ -41,6 +41,8 @@ public class RotinaItem
 public class SessaoTreino
 {
     public int Id { get; set; }
+    /// <summary>Gerado no aparelho: reenvios da fila offline não duplicam a sessão.</summary>
+    public Guid? IdCliente { get; set; }
     public DateTime DataHora { get; set; }
     public int? RotinaId { get; set; }
     public Rotina? Rotina { get; set; }
@@ -51,6 +53,8 @@ public class SessaoTreino
 public class Serie
 {
     public int Id { get; set; }
+    /// <summary>Gerado no aparelho: reenvios da fila offline não duplicam a série.</summary>
+    public Guid? IdCliente { get; set; }
     public int SessaoId { get; set; }
     public SessaoTreino? Sessao { get; set; }
     public int AparelhoId { get; set; }

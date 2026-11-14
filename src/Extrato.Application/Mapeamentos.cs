@@ -34,7 +34,7 @@ internal static class Mapeamentos
         new(a.Id, a.AcademiaId, a.Academia?.Nome ?? "", a.Nome, a.Exercicio, a.GrupoMuscular, a.TipoCarga, a.IncrementoKg);
 
     public static SerieDto ParaDto(this Serie s) =>
-        new(s.Id, s.AparelhoId, s.Ordem, s.CargaKg, s.Reps, s.RepsNaReserva);
+        new(s.Id, s.AparelhoId, s.Ordem, s.CargaKg, s.Reps, s.RepsNaReserva, s.IdCliente);
 
     public static RegrasDto ParaDto(this ConfiguracaoRegras r) => new()
     {
