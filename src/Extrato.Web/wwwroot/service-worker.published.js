@@ -27,7 +27,11 @@ async function onInstall(event) {
         .filter(asset => offlineAssetsInclude.some(pattern => pattern.test(asset.url)))
         .filter(asset => !offlineAssetsExclude.some(pattern => pattern.test(asset.url)))
         .map(asset => new Request(asset.url, { integrity: asset.hash, cache: 'no-cache' }));
-    await caches.open(cacheName).then(cache => cache.addAll(assetsRequests));
+    const cache = await caches.open(cacheName);
+    await cache.addAll(assetsRequests);
+    // .NET 10: index.html não vem no manifesto (o servidor troca os marcadores de fingerprint
+    // ao entregar). Guarda a versão processada, que é a usada para abrir o app sem internet.
+    await cache.add(new Request('index.html', { cache: 'no-cache' }));
 }
 
 async function onActivate(event) {

@@ -19,6 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends tzdata && apt-g
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     TZ=America/Sao_Paulo
 COPY --from=build /app .
+# pasta das chaves do cookie de sessão (volume): precisa ser do usuário do app, não do root;
+# o Docker copia dono e permissão para o volume nomeado na primeira montagem
+RUN mkdir -p /home/app/chaves && chown $APP_UID:$APP_UID /home/app/chaves && chmod 700 /home/app/chaves
 USER $APP_UID
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "Extrato.Api.dll"]

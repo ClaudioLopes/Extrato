@@ -64,19 +64,53 @@ else
     app.UseHsts();
 }
 
-// arquivos do Blazor são públicos (o app sem dados); os dados ficam na API protegida
-app.UseBlazorFrameworkFiles();
-app.UseStaticFiles();
-
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// arquivos do Blazor são públicos (o app sem dados); os dados ficam na API protegida
+app.MapStaticAssets().AllowAnonymous();
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapAcesso();
 app.MapNutricao();
 app.MapTreino();
-app.MapFallbackToFile("index.html").AllowAnonymous();
+
+// Rotas do app (/, /registrar, /treino/sessao/3…) servem o index.html. Com o Web hospedado pela API, o .NET 10
+// publica o index.html com o marcador #[.{fingerprint}] e o importmap vazios, e sem rota no MapStaticAssets.
+// Aqui ambos são preenchidos com os nomes com hash (_framework/X.{hash}.js), os únicos guardados pelo service worker:
+// os nomes sem hash são rotas virtuais do servidor e não abrem offline. Sem arquivos com hash (ex.: em
+// desenvolvimento), o marcador some e o importmap fica vazio, caindo nos nomes sem hash.
+var indexHtml = new Lazy<string>(() =>
+{
+    var raiz = app.Environment.WebRootFileProvider;
+    var comHash = raiz.GetDirectoryContents("_framework")
+        .Select(f => System.Text.RegularExpressions.Regex.Match(f.Name, @"^(.+)\.([a-z0-9]{10})\.js$"))
+        .Where(m => m.Success)
+        .ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value);
+    var importMap = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        imports = comHash.ToDictionary(p => $"./_framework/{p.Key}.js", p => $"./_framework/{p.Key}.{p.Value}.js")
+    });
+    using var leitor = new StreamReader(raiz.GetFileInfo("index.html").CreateReadStream());
+    return leitor.ReadToEnd()
+        .Replace("blazor.webassembly#[.{fingerprint}]",
+            comHash.TryGetValue("blazor.webassembly", out var hash) ? $"blazor.webassembly.{hash}" : "blazor.webassembly")
+        .Replace("<script type=\"importmap\"></script>",
+            comHash.Count == 0 ? "<script type=\"importmap\"></script>" : $"<script type=\"importmap\">{importMap}</script>");
+});
+Task EntregarIndex(HttpContext ctx)
+{
+    if (ctx.Request.Path.StartsWithSegments("/api"))
+    {
+        ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+        return Task.CompletedTask;
+    }
+    ctx.Response.ContentType = "text/html; charset=utf-8";
+    ctx.Response.Headers.CacheControl = "no-cache";
+    return ctx.Response.WriteAsync(indexHtml.Value);
+}
+app.MapGet("/index.html", EntregarIndex).AllowAnonymous();
+app.MapFallback(EntregarIndex).AllowAnonymous();
 
 if (app.Configuration.GetValue("Extrato:InicializarBanco", true))
     await app.Services.InicializarBancoAsync();
