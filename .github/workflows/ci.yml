@@ -9,7 +9,7 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-test
     steps:
-      - uses: actions/checkout@v4
-      - name: Build da imagem
-        run: docker build -t extrato:ci .
+      - uses: actions/checkout@v5
+      # sobe o compose (SQL Server + app) e confere páginas, modo offline, acesso e reinício
+      - name: Imagem e smoke test do container
+        run: bash scripts/smoke-docker.sh

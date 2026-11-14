@@ -128,6 +128,16 @@ dotnet test
 redistribuição diária com piso, ajuste semanal (GET adaptativo, 2 semanas, 1×/semana), Epley, estagnação, dupla progressão,
 % de gordura (Marinha), busca por trigramas, integridade da TACO, ciclo treino/descanso, cardápio, relatórios, bloqueio da foto do corpo, modo offline (busca e painel locais iguais ao servidor, idempotência), sanitização de EXIF, escolha do provedor de IA, acesso (primeiro acesso, senha, login), fallback da IA e fluxos completos com EF InMemory.
 
+O app publicado tem um smoke test próprio, que roda no CI e localmente com Docker:
+
+```bash
+bash scripts/smoke-docker.sh
+```
+
+Ele sobe o `docker compose` num projeto separado (portas 18080 e 14334, apagado ao final) e confere o que só quebra em
+execução: `index.html` com os scripts com hash, arquivos do modo offline no service worker, API protegida, primeiro
+acesso com código e login que sobrevive ao reinício do container.
+
 ## Fase 2
 
 - **Dia de treino × descanso** (Ajustes → Regras): o dia de treino ganha carboidrato extra (padrão +200 kcal) e os

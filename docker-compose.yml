@@ -9,7 +9,7 @@ services:
       MSSQL_SA_PASSWORD: "${SA_PASSWORD:-Extrato_Demo_2026!}"
       MSSQL_PID: Developer
     ports:
-      - "14333:1433"
+      - "${SQL_PORTA:-14333}:1433"
     volumes:
       - sqldata:/var/opt/mssql
     healthcheck:
@@ -38,7 +38,7 @@ services:
     volumes:
       - chaves:/home/app/chaves
     ports:
-      - "8080:8080"
+      - "${EXTRATO_PORTA:-8080}:8080"
 
 volumes:
   sqldata:
