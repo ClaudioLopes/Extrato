@@ -1,0 +1,36 @@
+# Fly.io: uma máquina com o app e o banco SQLite no volume (ADR 0005). Passo a passo em docs/deploy-fly.md.
+# O nome do app é global no Fly: troque "extrato" se já existir (o endereço vira https://<nome>.fly.dev).
+app = "extrato"
+primary_region = "gru" # São Paulo
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  Extrato__FusoHorario = "America/Sao_Paulo"
+  # o proxy do Fly termina o HTTPS: IP do cliente e https vêm de X-Forwarded-*
+  Extrato__ProxyReverso = "true"
+  # segredos (fly secrets set): Auth__CodigoConfiguracao, Claude__ApiKey ou Gemini__ApiKey
+
+[mounts]
+  source = "extrato_dados"
+  destination = "/data" # banco SQLite (extrato.db) e chaves do cookie de sessão
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # sempre ligada: o ajuste semanal roda dentro do app na segunda-feira
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

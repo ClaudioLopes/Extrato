@@ -6,6 +6,7 @@ using Extrato.Infrastructure;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +44,19 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
+// Atrás de um proxy que termina o HTTPS (Fly.io): o IP do cliente e o https vêm de X-Forwarded-*.
+// Só ligar onde o app é alcançável apenas pelo proxy. ForwardLimit 1 pega o último IP da lista, o que o
+// proxy acrescentou; um X-Forwarded-For forjado pelo cliente fica antes dele e é ignorado.
+var atrasDeProxy = builder.Configuration.GetValue("Extrato:ProxyReverso", false);
+if (atrasDeProxy)
+    builder.Services.Configure<ForwardedHeadersOptions>(o =>
+    {
+        o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        o.ForwardLimit = 1;
+        o.KnownIPNetworks.Clear();
+        o.KnownProxies.Clear();
+    });
+
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -53,6 +67,7 @@ builder.Services.AddRateLimiter(o =>
 
 var app = builder.Build();
 
+if (atrasDeProxy) app.UseForwardedHeaders();
 app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
 {
