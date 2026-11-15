@@ -49,31 +49,24 @@ h1:focus { outline: none; }
 a { color: var(--proteina); }
 
 /* ---------- layout ---------- */
-.app { display: flex; min-height: 100vh; }
-.lateral {
-    width: 220px; background: var(--tinta); color: #fff; padding: 20px 14px;
-    position: sticky; top: 0; height: 100vh; flex-shrink: 0;
+/* app de celular: uma coluna (centralizada em telas largas) e abas fixas embaixo, em qualquer tela */
+.app { min-height: 100vh; }
+.conteudo {
+    width: 100%; max-width: 600px; margin: 0 auto;
+    padding: calc(16px + env(safe-area-inset-top)) 16px calc(88px + env(safe-area-inset-bottom));
 }
-.lateral .marca { display: flex; align-items: center; gap: 10px; font-size: 1.4rem; font-weight: 700; color: #fff; text-decoration: none; margin-bottom: 28px; }
-.lateral nav a {
-    display: flex; align-items: center; gap: 10px; color: #D1D5DB; text-decoration: none;
-    padding: 10px 12px; border-radius: 10px; margin-bottom: 4px; font-weight: 500;
+.barra-inferior {
+    display: flex; position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px;
+    background: var(--tinta); justify-content: space-around; z-index: 10;
+    padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
 }
-.lateral nav a.active, .lateral nav a:hover { background: #1F2937; color: #fff; }
-.conteudo { flex: 1; padding: 24px; max-width: 1080px; width: 100%; margin: 0 auto; padding-bottom: 96px; }
-.barra-inferior { display: none; }
-
-@media (max-width: 760px) {
-    .lateral { display: none; }
-    .conteudo { padding: 16px; padding-bottom: 96px; }
-    .barra-inferior {
-        display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: var(--tinta);
-        justify-content: space-around; padding: 8px 4px calc(8px + env(safe-area-inset-bottom)); z-index: 10;
-    }
-    .barra-inferior a { color: #9CA3AF; text-decoration: none; font-size: .72rem; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 56px; }
-    .barra-inferior a.active { color: #fff; }
-    .barra-inferior .ico { font-size: 1.25rem; line-height: 1; }
+.barra-inferior a {
+    color: #9CA3AF; text-decoration: none; font-size: .72rem; display: flex; flex-direction: column;
+    align-items: center; gap: 2px; min-width: 56px; padding: 2px 0;
 }
+.barra-inferior a.active { color: #fff; }
+.barra-inferior .ico { font-size: 1.25rem; line-height: 1; }
+@media (min-width: 600px) { .barra-inferior { border-radius: 14px 14px 0 0; } }
 
 .topo { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
 .subtitulo { color: var(--suave); margin: 0; }
@@ -82,8 +75,7 @@ a { color: var(--proteina); }
 .cartao { background: var(--cartao); border: 1px solid var(--borda); border-radius: var(--raio); padding: 16px; margin-bottom: 16px; }
 .grade { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .grade-2 { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.grade-4 { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-@media (max-width: 760px) { .grade-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.grade-4 { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .linha { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .linha.entre { justify-content: space-between; }
 .cresce { flex: 1; min-width: 0; }
@@ -174,10 +166,6 @@ td { padding: 8px; border-bottom: 1px solid var(--borda); vertical-align: middle
 .acesso-cartao { width: 100%; max-width: 380px; margin: 0; padding: 24px; }
 .acesso-marca { display: flex; align-items: center; gap: 10px; font-size: 1.4rem; font-weight: 700; margin-bottom: 18px; }
 .btn.largo { width: 100%; justify-content: center; padding: 11px 14px; }
-.lateral { display: flex; flex-direction: column; }
-.lateral nav { flex: 1; }
-.sair { border-top: 1px solid #1F2937; padding-top: 12px; display: flex; justify-content: space-between; align-items: center; color: #9CA3AF; gap: 8px; }
-.sair .btn { background: transparent; color: #D1D5DB; border-color: #374151; }
 
 /* ---------- fase 2 ---------- */
 .cardapio { margin-top: 8px; display: grid; gap: 6px; }

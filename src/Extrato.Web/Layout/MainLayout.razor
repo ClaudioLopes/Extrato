@@ -22,23 +22,8 @@ else if (!Sessao.Atual.Autenticado)
 }
 else
 {
+    @* app de celular: coluna única e abas embaixo em qualquer tela; "Sair" fica em Ajustes → Acesso *@
     <div class="app">
-        <aside class="lateral">
-            <a class="marca" href="">
-                <img src="icon.svg" alt="" width="32" height="32" /> extrato
-            </a>
-            <nav>
-                @foreach (var (href, ico, nome, match) in Links)
-                {
-                    <NavLink href="@href" Match="match"><span>@ico</span> @nome</NavLink>
-                }
-            </nav>
-            <div class="sair">
-                <div class="pequeno">@Sessao.Atual.Login</div>
-                <button class="btn mini" @onclick="Sair">Sair</button>
-            </div>
-        </aside>
-
         <main class="conteudo">
             @if (!Rede.Online)
             {
@@ -158,21 +143,6 @@ else
             Rede.DefinirPendentes((await Api.LerFila()).Count);
         }
         _autenticadoAntes = autenticado;
-    }
-
-    private async Task Sair()
-    {
-        var pendentes = (await Api.LerFila()).Count;
-        if (pendentes > 0)
-        {
-            var ok = await JS.InvokeAsync<bool>("extrato.confirmar",
-                $"Há {pendentes} lançamento(s) ainda não enviados. Sair apaga os dados deste aparelho e eles serão perdidos. Sair mesmo assim?");
-            if (!ok) return;
-        }
-        try { await Api.LogoutAsync(); } catch (ApiException) { }
-        await Api.LimparDadosLocaisAsync();
-        Rede.DefinirPendentes(0);
-        Sessao.Definir(Sessao.Atual! with { Autenticado = false, Login = null });
     }
 
     private void AoMudar() => InvokeAsync(StateHasChanged);
