@@ -67,6 +67,13 @@ a { color: var(--proteina); }
 .barra-inferior a.active { color: #fff; }
 .barra-inferior .ico { font-size: 1.25rem; line-height: 1; }
 @media (min-width: 600px) { .barra-inferior { border-radius: 14px 14px 0 0; } }
+/* aviso de nova versão (js/extrato.js): acima da barra de abas */
+.aviso-versao {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom));
+    width: calc(100% - 32px); max-width: 568px; z-index: 11; display: flex; gap: 10px; align-items: center;
+    justify-content: space-between; background: var(--cartao); color: var(--texto); border: 1px solid var(--borda);
+    border-radius: 12px; padding: 10px 12px; box-shadow: 0 6px 20px rgb(0 0 0 / .25); font-size: .9rem;
+}
 
 .topo { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
 .subtitulo { color: var(--suave); margin: 0; }
