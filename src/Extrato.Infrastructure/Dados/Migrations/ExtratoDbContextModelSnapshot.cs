@@ -704,6 +704,20 @@ namespace Extrato.Infrastructure.Dados.Migrations
                     b.ToTable("Usuario", (string)null);
                 });
 
+            modelBuilder.Entity("Extrato.Infrastructure.Dados.ExecucaoJob", b =>
+                {
+                    b.Property<string>("Nome")
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("UltimaExecucao")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Nome");
+
+                    b.ToTable("ExecucaoJob", (string)null);
+                });
+
             modelBuilder.Entity("Extrato.Domain.Entidades.AjusteMeta", b =>
                 {
                     b.HasOne("Extrato.Domain.Entidades.Usuario", null)

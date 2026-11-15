@@ -1,6 +1,6 @@
 # Publicar no Fly.io
 
-Uma máquina (`shared-cpu-1x`, 512 MB, região `gru`) com o app e o banco SQLite num volume de 1 GB
+Uma máquina (`shared-cpu-1x`, 512 MB, região `gru`, ligada só quando usada) com o app e o banco SQLite num volume de 1 GB
 ([ADR 0005](adr/0005-sqlite-no-lugar-do-sql-server.md)). O HTTPS no endereço `https://<app>.fly.dev` é do Fly.
 Confira os preços atuais em <https://fly.io/docs/about/pricing/> antes de criar.
 
@@ -69,8 +69,11 @@ O CI (GitHub Actions) roda os testes e o smoke test do container a cada push; o 
 
 ## Observações
 
-- A máquina fica sempre ligada (`min_machines_running = 1`): o ajuste semanal da meta roda dentro do app na
-  segunda-feira, e não haveria quem o disparasse com a máquina parada.
+- A máquina liga só quando o app é usado (`auto_stop_machines = "stop"`, `min_machines_running = 0`): o proxy
+  do Fly a desliga sem acesso e a religa na próxima requisição, em alguns segundos. A tela abre na hora (cache do
+  PWA); os dados chegam quando a máquina sobe. O ajuste semanal da meta roda na primeira vez que o app subir a
+  partir de segunda-feira, uma vez por semana (a última execução fica no banco, tabela `ExecucaoJob`).
+  Para deixá-la sempre ligada: `auto_stop_machines = "off"` e `min_machines_running = 1`.
 - `Extrato__ProxyReverso=true` faz o app ler o IP do cliente e o https de `X-Forwarded-*`. Só use atrás de um
   proxy que seja o único caminho até o app, como o do Fly.
 - O app no celular só troca para uma versão nova depois que todas as abas dele forem fechadas (comportamento

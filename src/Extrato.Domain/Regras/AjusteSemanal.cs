@@ -108,6 +108,28 @@ public static class AjusteSemanal
         ritmo < faixa.Min ? -1 : ritmo > faixa.Max ? 1 : 0;
 }
 
+/// <summary>
+/// Quando o ajuste semanal automático roda. A máquina pode ficar desligada (Fly.io liga só quando o app é usado):
+/// em vez de "só no dia", roda na primeira vez que o app estiver de pé a partir do dia configurado (no próprio dia,
+/// só depois das 6h), uma vez por semana.
+/// </summary>
+public static class AgendaAjusteSemanal
+{
+    public const int HoraMinima = 6;
+
+    /// <summary>Último dia configurado (ex.: segunda-feira) igual ou anterior a hoje: início da "semana" do ajuste.</summary>
+    public static DateOnly InicioDaSemana(DateOnly hoje, DayOfWeek dia) =>
+        hoje.AddDays(-(((int)hoje.DayOfWeek - (int)dia + 7) % 7));
+
+    public static bool DeveRodar(DateTime agora, DayOfWeek dia, DateOnly? ultimaExecucao)
+    {
+        var hoje = DateOnly.FromDateTime(agora);
+        var inicio = InicioDaSemana(hoje, dia);
+        if (hoje == inicio && agora.Hour < HoraMinima) return false;
+        return ultimaExecucao is null || ultimaExecucao < inicio;
+    }
+}
+
 public static class MediaMovel
 {
     /// <summary>Média dos pesos registrados nos 7 dias que terminam em <paramref name="data"/>.</summary>

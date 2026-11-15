@@ -27,6 +27,7 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
     public DbSet<Serie> Series => Set<Serie>();
     public DbSet<Atividade> Atividades => Set<Atividade>();
     public DbSet<Credencial> Credenciais => Set<Credencial>();
+    public DbSet<ExecucaoJob> ExecucoesJob => Set<ExecucaoJob>();
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -214,6 +215,13 @@ public class ExtratoDbContext(DbContextOptions<ExtratoDbContext> options) : DbCo
             e.HasOne(x => x.Aparelho).WithMany().HasForeignKey(x => x.AparelhoId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => new { x.AparelhoId, x.SessaoId });
             e.HasIndex(x => x.IdCliente).IsUnique().HasFilter("\"IdCliente\" IS NOT NULL");
+        });
+
+        b.Entity<ExecucaoJob>(e =>
+        {
+            e.ToTable("ExecucaoJob");
+            e.HasKey(x => x.Nome);
+            e.Property(x => x.Nome).HasMaxLength(60);
         });
 
         b.Entity<Atividade>(e =>

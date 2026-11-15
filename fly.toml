@@ -19,10 +19,12 @@ primary_region = "gru" # São Paulo
 [http_service]
   internal_port = 8080
   force_https = true
-  # sempre ligada: o ajuste semanal roda dentro do app na segunda-feira
-  auto_stop_machines = "off"
+  # liga só quando usado: o proxy do Fly para a máquina sem acesso e a religa na próxima requisição
+  # (alguns segundos; a tela abre do cache do PWA). O ajuste semanal roda na primeira vez que o app subir
+  # a partir de segunda-feira (AgendaAjusteSemanal).
+  auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 1
+  min_machines_running = 0
 
   [[http_service.checks]]
     method = "GET"

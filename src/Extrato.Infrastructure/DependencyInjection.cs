@@ -1,5 +1,6 @@
 using Extrato.Application;
 using Extrato.Application.Servicos;
+using Extrato.Domain.Regras;
 using Extrato.Infrastructure.Dados;
 using Extrato.Infrastructure.Imagem;
 using Extrato.Infrastructure.Visao;
@@ -119,10 +120,14 @@ public static class DependencyInjection
     }
 }
 
-/// <summary>Roda o ajuste semanal (seção 6.5) uma vez por dia no dia configurado (padrão segunda-feira).</summary>
+/// <summary>
+/// Roda o ajuste semanal (seção 6.5) uma vez por semana, a partir do dia configurado (padrão segunda-feira).
+/// Confere ao subir e a cada hora: com a máquina desligada fora de uso (Fly.io), roda na primeira vez que o app
+/// estiver de pé depois desse dia. A última execução fica no banco, para não repetir a cada religamento.
+/// </summary>
 public class AjusteSemanalJob(IServiceScopeFactory scopes, IRelogio relogio, IConfiguration config, ILogger<AjusteSemanalJob> logger) : BackgroundService
 {
-    private DateOnly? _ultimaExecucao;
+    public const string NomeJob = "AjusteSemanal";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -131,22 +136,34 @@ public class AjusteSemanalJob(IServiceScopeFactory scopes, IRelogio relogio, ICo
         using var timer = new PeriodicTimer(TimeSpan.FromHours(1));
         do
         {
-            var hoje = relogio.Hoje;
-            if (hoje.DayOfWeek == dia && _ultimaExecucao != hoje && relogio.Agora.Hour >= 6)
+            try { await ExecutarSeDevidoAsync(dia, stoppingToken); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                try
-                {
-                    using var scope = scopes.CreateScope();
-                    var r = await scope.ServiceProvider.GetRequiredService<MetaService>().AjusteSemanalAsync(stoppingToken);
-                    logger.LogInformation("Ajuste semanal: {Ajustou} — {Motivo}", r.Ajustou, r.Motivo);
-                    _ultimaExecucao = hoje;
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    logger.LogWarning(ex, "Ajuste semanal automático falhou.");
-                    _ultimaExecucao = hoje;
-                }
+                logger.LogWarning(ex, "Falha ao verificar o ajuste semanal automático.");
             }
         } while (await timer.WaitForNextTickAsync(stoppingToken));
+    }
+
+    private async Task ExecutarSeDevidoAsync(DayOfWeek dia, CancellationToken ct)
+    {
+        using var scope = scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ExtratoDbContext>();
+        var registro = await db.ExecucoesJob.FindAsync([NomeJob], ct);
+        if (!AgendaAjusteSemanal.DeveRodar(relogio.Agora, dia, registro?.UltimaExecucao)) return;
+
+        try
+        {
+            var r = await scope.ServiceProvider.GetRequiredService<MetaService>().AjusteSemanalAsync(ct);
+            logger.LogInformation("Ajuste semanal: {Ajustou} — {Motivo}", r.Ajustou, r.Motivo);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // sem meta, sem peso etc.: conta como executado nesta semana, como antes
+            logger.LogWarning(ex, "Ajuste semanal automático falhou.");
+        }
+
+        if (registro is null) db.ExecucoesJob.Add(registro = new ExecucaoJob { Nome = NomeJob });
+        registro.UltimaExecucao = relogio.Hoje;
+        await db.SaveChangesAsync(ct);
     }
 }
