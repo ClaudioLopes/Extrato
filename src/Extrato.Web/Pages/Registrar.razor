@@ -44,7 +44,7 @@
         case Aba.Foto:
             <p class="suave pequeno">A foto é reduzida e limpa (sem EXIF/GPS) em memória, enviada à IA (@_provedor) e descartada. Só os dados confirmados ficam no banco.</p>
             <div class="linha">
-                <InputFile OnChange="EscolherFoto" accept="image/*" capture="environment" />
+                <InputFile OnChange="EscolherFoto" accept="image/*" />
                 <button class="btn primario" disabled="@(_foto == null || _ocupado)" @onclick="Analisar">@(_ocupado ? "Analisando…" : "Analisar foto")</button>
             </div>
             @foreach (var a in _alertasIA) { <div class="aviso" style="margin-top:10px">@a</div> }

@@ -65,7 +65,7 @@
                 <div class="campo"><label>Observação (opcional)</label><input @bind="_fotoDescricao" placeholder="ex.: manhã, em jejum, frente" /></div>
                 <label class="linha campo" style="color:var(--texto)"><input type="checkbox" @bind="_consentimento" /> Entendo e autorizo o envio desta foto ao provedor de IA.</label>
                 <div class="linha">
-                    <InputFile OnChange="e => _fotoCorpo = e.File" accept="image/*" capture="user" />
+                    <InputFile OnChange="e => _fotoCorpo = e.File" accept="image/*" />
                     <button class="btn" disabled="@(!_consentimento || _fotoCorpo == null || _ocupado)" @onclick="AnalisarCorpo">Analisar</button>
                 </div>
                 @if (_fotoResultado != null)

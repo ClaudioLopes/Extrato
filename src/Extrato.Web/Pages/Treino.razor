@@ -79,7 +79,7 @@
         <h2>Cadastrar aparelho</h2>
         <p class="suave pequeno">Foto só no cadastro, uma vez. <strong>Sem pessoas no enquadramento</strong>: se houver, o resultado é descartado.</p>
         <div class="linha campo">
-            <InputFile OnChange="e => _foto = e.File" accept="image/*" capture="environment" />
+            <InputFile OnChange="e => _foto = e.File" accept="image/*" />
             <button class="btn" disabled="@(_foto == null || _ocupado)" @onclick="AnalisarFoto">Sugerir pela foto</button>
         </div>
         <div class="grade-2">
