@@ -13,15 +13,15 @@ public class GeminiOptions
 {
     public const string Secao = "Gemini";
     public string? ApiKey { get; set; }
-    public string Modelo { get; set; } = "gemini-3.8-flash";
+    public string Modelo { get; set; } = "gemini-3.5-flash-lite";
     /// <summary>
     /// Tentados em ordem quando o modelo anterior está sobrecarregado (503 depois das tentativas) ou não existe (404).
     /// No plano grátis, modelo recém-lançado costuma ficar sobrecarregado.
     /// </summary>
-    public List<string> ModelosReserva { get; set; } = ["gemini-3.5-flash-lite"];
+    public List<string> ModelosReserva { get; set; } = ["gemini-3.8-flash"];
     public string BaseUrl { get; set; } = "https://generativelanguage.googleapis.com/v1beta/";
     /// <summary>Tentativas no último modelo da lista; os anteriores têm 2, para passar logo ao reserva.</summary>
-    public int MaxTentativas { get; set; } = 4;
+    public int MaxTentativas { get; set; } = 2;
     public int TimeoutSegundos { get; set; } = 30;
 }
 
@@ -198,7 +198,9 @@ public class GeminiVisionProvider(HttpClient http, IOptions<GeminiOptions> optio
             var ultimo = i == modelos.Count - 1;
             try
             {
-                return await GerarComModeloAsync(modelos[i], corpo, ultimo ? Math.Max(1, _opt.MaxTentativas) : 2, ct);
+                // antes do último modelo: menos tentativas e limite de tempo menor, para passar logo ao reserva
+                return await GerarComModeloAsync(modelos[i], corpo, ultimo ? Math.Max(1, _opt.MaxTentativas) : 2,
+                    ultimo ? _opt.TimeoutSegundos : Math.Min(_opt.TimeoutSegundos, 15), ct);
             }
             catch (ModeloIndisponivelException ex) when (!ultimo)
             {
@@ -207,10 +209,10 @@ public class GeminiVisionProvider(HttpClient http, IOptions<GeminiOptions> optio
         }
     }
 
-    /// <summary>503 depois das tentativas ou 404 (modelo inexistente): vale tentar o modelo reserva.</summary>
+    /// <summary>503 depois das tentativas, tempo esgotado ou 404 (modelo inexistente): vale tentar o modelo reserva.</summary>
     private sealed class ModeloIndisponivelException(string mensagem) : VisionIndisponivelException(mensagem);
 
-    private async Task<string> GerarComModeloAsync(string modelo, JsonObject corpo, int maxTentativas, CancellationToken ct)
+    private async Task<string> GerarComModeloAsync(string modelo, JsonObject corpo, int maxTentativas, int timeoutSegundos, CancellationToken ct)
     {
         var url = $"models/{modelo}:generateContent";
         for (var tentativa = 1; ; tentativa++)
@@ -220,14 +222,15 @@ public class GeminiVisionProvider(HttpClient http, IOptions<GeminiOptions> optio
 
             HttpResponseMessage resp;
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeout.CancelAfter(TimeSpan.FromSeconds(_opt.TimeoutSegundos));
+            timeout.CancelAfter(TimeSpan.FromSeconds(timeoutSegundos));
             try
             {
                 resp = await http.SendAsync(req, timeout.Token);
             }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
-                throw new VisionIndisponivelException("Tempo esgotado ao consultar o Gemini.");
+                logger.LogWarning("Gemini {Modelo}: sem resposta em {Segundos}s.", modelo, timeoutSegundos);
+                throw new ModeloIndisponivelException("Tempo esgotado ao consultar o Gemini. Tente de novo em alguns minutos ou registre manualmente.");
             }
             catch (HttpRequestException ex)
             {

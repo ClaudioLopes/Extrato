@@ -78,6 +78,34 @@ public class GeminiTests
         falso.Chamados.Should().Equal("principal", "reserva");
     }
 
+    /// <summary>Servidor que não responde ao modelo principal (só ao reserva).</summary>
+    private sealed class GoogleLento : HttpMessageHandler
+    {
+        public List<string> Chamados { get; } = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var modelo = request.RequestUri!.AbsolutePath.Split('/').Last().Split(':')[0];
+            Chamados.Add(modelo);
+            if (modelo == "principal") await Task.Delay(TimeSpan.FromMinutes(1), ct); // cancelado pelo limite de tempo
+            return Ok();
+        }
+    }
+
+    [Fact]
+    public async Task Principal_sem_resposta_no_limite_de_tempo_passa_para_o_reserva()
+    {
+        var lento = new GoogleLento();
+        var http = new HttpClient(lento) { BaseAddress = new Uri("https://gemini.teste/v1beta/") };
+        var g = new GeminiVisionProvider(http, Options.Create(new GeminiOptions
+        {
+            ApiKey = "chave-de-teste", Modelo = "principal", ModelosReserva = ["reserva"], MaxTentativas = 2, TimeoutSegundos = 1
+        }), NullLogger<GeminiVisionProvider>.Instance);
+
+        (await g.AnalisarAparelhoAsync(Png(), null, default)).Exercicio.Should().Be("Supino reto");
+        lento.Chamados.Should().Equal("principal", "reserva", "tempo esgotado não repete o mesmo modelo");
+    }
+
     [Fact]
     public async Task Cota_esgotada_nao_troca_de_modelo()
     {
