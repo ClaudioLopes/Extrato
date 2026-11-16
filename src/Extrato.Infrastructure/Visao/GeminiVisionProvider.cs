@@ -14,7 +14,13 @@ public class GeminiOptions
     public const string Secao = "Gemini";
     public string? ApiKey { get; set; }
     public string Modelo { get; set; } = "gemini-3.8-flash";
+    /// <summary>
+    /// Tentados em ordem quando o modelo anterior está sobrecarregado (503 depois das tentativas) ou não existe (404).
+    /// No plano grátis, modelo recém-lançado costuma ficar sobrecarregado.
+    /// </summary>
+    public List<string> ModelosReserva { get; set; } = ["gemini-3.5-flash-lite"];
     public string BaseUrl { get; set; } = "https://generativelanguage.googleapis.com/v1beta/";
+    /// <summary>Tentativas no último modelo da lista; os anteriores têm 2, para passar logo ao reserva.</summary>
     public int MaxTentativas { get; set; } = 4;
     public int TimeoutSegundos { get; set; } = 30;
 }
@@ -142,6 +148,18 @@ public class GeminiVisionProvider(HttpClient http, IOptions<GeminiOptions> optio
         catch (JsonException ex) { throw new VisionIndisponivelException("A IA devolveu JSON inválido.", ex); }
     }
 
+    /// <summary>Mensagem de erro do Google (error.message), sem a imagem; no máximo 300 caracteres.</summary>
+    private static async Task<string> MensagemErroAsync(HttpResponseMessage resp, CancellationToken ct)
+    {
+        try
+        {
+            var corpo = await resp.Content.ReadAsStringAsync(ct);
+            var msg = JsonNode.Parse(corpo)?["error"]?["message"]?.GetValue<string>() ?? corpo;
+            return msg.Length > 300 ? msg[..300] : msg;
+        }
+        catch (Exception) { return "(sem detalhes)"; }
+    }
+
     private async Task<string> GerarAsync(string sistema, JsonObject schema, Stream imagem, string texto, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(_opt.ApiKey)) throw new VisionIndisponivelException("Chave do Gemini não configurada.");
@@ -173,7 +191,28 @@ public class GeminiVisionProvider(HttpClient http, IOptions<GeminiOptions> optio
             }
         };
 
-        var url = $"models/{_opt.Modelo}:generateContent";
+        // modelo principal e reservas: sobrecarregado (503) ou inexistente (404) passa para o próximo
+        var modelos = new[] { _opt.Modelo }.Concat(_opt.ModelosReserva).Where(m => !string.IsNullOrWhiteSpace(m)).Distinct().ToList();
+        for (var i = 0; ; i++)
+        {
+            var ultimo = i == modelos.Count - 1;
+            try
+            {
+                return await GerarComModeloAsync(modelos[i], corpo, ultimo ? Math.Max(1, _opt.MaxTentativas) : 2, ct);
+            }
+            catch (ModeloIndisponivelException ex) when (!ultimo)
+            {
+                logger.LogWarning("Gemini {Modelo} indisponível ({Motivo}); tentando {Proximo}.", modelos[i], ex.Message, modelos[i + 1]);
+            }
+        }
+    }
+
+    /// <summary>503 depois das tentativas ou 404 (modelo inexistente): vale tentar o modelo reserva.</summary>
+    private sealed class ModeloIndisponivelException(string mensagem) : VisionIndisponivelException(mensagem);
+
+    private async Task<string> GerarComModeloAsync(string modelo, JsonObject corpo, int maxTentativas, CancellationToken ct)
+    {
+        var url = $"models/{modelo}:generateContent";
         for (var tentativa = 1; ; tentativa++)
         {
             using var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(corpo) };
@@ -199,22 +238,36 @@ public class GeminiVisionProvider(HttpClient http, IOptions<GeminiOptions> optio
             {
                 if (resp.StatusCode is HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable)
                 {
-                    if (tentativa >= _opt.MaxTentativas)
-                        throw new VisionIndisponivelException(resp.StatusCode == HttpStatusCode.TooManyRequests
-                            ? "Cota do Gemini esgotada (HTTP 429). Use o registro manual."
-                            : "Gemini indisponível (HTTP 503).");
+                    if (tentativa >= maxTentativas)
+                    {
+                        var erro = await MensagemErroAsync(resp, ct);
+                        logger.LogWarning("Gemini {Modelo} HTTP {Status} após {Tentativas} tentativa(s): {Erro}", modelo, (int)resp.StatusCode, tentativa, erro);
+                        if (resp.StatusCode == HttpStatusCode.TooManyRequests)
+                            throw new VisionIndisponivelException("Cota grátis do Gemini esgotada por agora (HTTP 429). Tente mais tarde ou registre manualmente.");
+                        throw new ModeloIndisponivelException("Gemini sobrecarregado (HTTP 503). Tente de novo em alguns minutos ou registre manualmente.");
+                    }
                     var espera = resp.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(Math.Pow(2, tentativa - 1));
                     espera += TimeSpan.FromMilliseconds(Random.Shared.Next(0, 250)); // jitter
-                    logger.LogInformation("Gemini HTTP {Status}; nova tentativa {Tentativa} em {Espera}", (int)resp.StatusCode, tentativa + 1, espera);
+                    logger.LogInformation("Gemini {Modelo} HTTP {Status}; nova tentativa {Tentativa} em {Espera}", modelo, (int)resp.StatusCode, tentativa + 1, espera);
                     await Task.Delay(espera, ct);
                     continue;
                 }
 
                 if (!resp.IsSuccessStatusCode)
+                {
+                    var erro = await MensagemErroAsync(resp, ct);
+                    logger.LogWarning("Gemini {Modelo} HTTP {Status}: {Erro}", modelo, (int)resp.StatusCode, erro);
+                    if (resp.StatusCode == HttpStatusCode.NotFound)
+                        throw new ModeloIndisponivelException($"Modelo {modelo} não encontrado no Gemini (HTTP 404).");
                     throw new VisionIndisponivelException($"Gemini respondeu HTTP {(int)resp.StatusCode}.");
+                }
 
                 var resposta = await resp.Content.ReadFromJsonAsync<JsonObject>(ct);
-                var textoJson = resposta?["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.GetValue<string>();
+                // modelos com raciocínio podem trazer partes de "pensamento" antes do texto: junta só o texto da resposta
+                var partes = resposta?["candidates"]?[0]?["content"]?["parts"]?.AsArray() ?? [];
+                var textoJson = string.Concat(partes
+                    .Where(p => p?["thought"]?.GetValue<bool>() != true)
+                    .Select(p => p?["text"]?.GetValue<string>()));
                 if (string.IsNullOrWhiteSpace(textoJson))
                     throw new VisionIndisponivelException("Gemini não devolveu conteúdo (possível bloqueio de segurança).");
                 return textoJson;
