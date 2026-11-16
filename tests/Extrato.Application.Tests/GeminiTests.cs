@@ -103,7 +103,8 @@ public class GeminiTests
         }), NullLogger<GeminiVisionProvider>.Instance);
 
         (await g.AnalisarAparelhoAsync(Png(), null, default)).Exercicio.Should().Be("Supino reto");
-        lento.Chamados.Should().Equal("principal", "reserva", "tempo esgotado não repete o mesmo modelo");
+        // tempo esgotado não repete o mesmo modelo: vai direto ao reserva
+        lento.Chamados.Should().Equal("principal", "reserva");
     }
 
     [Fact]
