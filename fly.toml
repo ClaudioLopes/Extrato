@@ -10,7 +10,10 @@ primary_region = "gru" # São Paulo
   Extrato__FusoHorario = "America/Sao_Paulo"
   # o proxy do Fly termina o HTTPS: IP do cliente e https vêm de X-Forwarded-*
   Extrato__ProxyReverso = "true"
-  # segredos (fly secrets set): Auth__CodigoConfiguracao, Claude__ApiKey ou Gemini__ApiKey
+  # IA de visão: Gemini (plano grátis). Sem esta linha, o app usa o Claude se houver Claude__ApiKey.
+  # Foto do corpo nunca vai ao Gemini grátis (o botão fica bloqueado).
+  Visao__Provedor = "Gemini"
+  # segredos (fly secrets set ou painel do Fly): Gemini__ApiKey (ou Claude__ApiKey); Auth__CodigoConfiguracao só no primeiro acesso
 
 [mounts]
   source = "extrato_dados"

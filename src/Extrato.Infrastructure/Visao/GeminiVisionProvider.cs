@@ -13,7 +13,7 @@ public class GeminiOptions
 {
     public const string Secao = "Gemini";
     public string? ApiKey { get; set; }
-    public string Modelo { get; set; } = "gemini-2.5-flash";
+    public string Modelo { get; set; } = "gemini-3.8-flash";
     public string BaseUrl { get; set; } = "https://generativelanguage.googleapis.com/v1beta/";
     public int MaxTentativas { get; set; } = 4;
     public int TimeoutSegundos { get; set; } = 30;
