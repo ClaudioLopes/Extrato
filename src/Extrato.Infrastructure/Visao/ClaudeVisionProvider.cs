@@ -161,7 +161,15 @@ public class ClaudeVisionProvider : IVisionProvider
         var texto = $"Refeição: {tipo}." + (string.IsNullOrWhiteSpace(descricao)
             ? " Sem descrição do usuário."
             : $" Descrição do usuário: \"{descricao}\".");
-        var json = await GerarAsync(GeminiVisionProvider.PromptPrato, SchemaPrato, imagem, texto, ct);
+        return Prato(await GerarAsync(GeminiVisionProvider.PromptPrato, SchemaPrato, imagem, texto, ct));
+    }
+
+    public async Task<AnalisePratoResultado> AnalisarDescricaoAsync(string descricao, TipoRefeicao tipo, CancellationToken ct) =>
+        Prato(await GerarAsync(GeminiVisionProvider.PromptDescricao, SchemaPrato, null,
+            $"Refeição: {tipo}. Descrição do usuário: \"{descricao}\".", ct));
+
+    private static AnalisePratoResultado Prato(string json)
+    {
         var r = Desserializar<PratoJson>(json);
         if (r.Itens is null) throw new VisionIndisponivelException("JSON sem a lista de itens.");
         return new AnalisePratoResultado(
@@ -177,15 +185,17 @@ public class ClaudeVisionProvider : IVisionProvider
         return new AnaliseAparelhoResultado(r.Exercicio, r.GrupoMuscular, r.TipoCarga, r.HaPessoas, r.Alertas ?? []);
     }
 
-    private async Task<string> GerarAsync(string sistema, Dictionary<string, JsonElement> schema, Stream imagem, string texto, CancellationToken ct)
+    /// <param name="imagem">null: só texto (descrição da refeição).</param>
+    private async Task<string> GerarAsync(string sistema, Dictionary<string, JsonElement> schema, Stream? imagem, string texto, CancellationToken ct)
     {
-        byte[] bytes;
-        using (var ms = new MemoryStream())
+        byte[]? bytes = null;
+        if (imagem is not null)
         {
+            using var ms = new MemoryStream();
             await imagem.CopyToAsync(ms, ct);
             bytes = ms.ToArray();
         }
-        var png = SanitizadorImagem.MimeDe(bytes) == "image/png";
+        var png = bytes is not null && SanitizadorImagem.MimeDe(bytes) == "image/png";
 
         try
         {
@@ -202,9 +212,23 @@ public class ClaudeVisionProvider : IVisionProvider
     /// <summary>Texto do erro da API (diz qual parâmetro foi recusado; não contém a imagem).</summary>
     private static string MensagemApi(Exception ex) => ex.Message.Length > 600 ? ex.Message[..600] : ex.Message;
 
-    private async Task<string> EnviarAsync(string sistema, Dictionary<string, JsonElement> schema, byte[] bytes, bool png,
+    private async Task<string> EnviarAsync(string sistema, Dictionary<string, JsonElement> schema, byte[]? bytes, bool png,
         string texto, bool comFallback, CancellationToken ct)
     {
+        var conteudo = new List<BetaContentBlockParam>();
+        if (bytes is not null)
+        {
+            conteudo.Add(new BetaImageBlockParam
+            {
+                Source = new BetaBase64ImageSource
+                {
+                    Data = Convert.ToBase64String(bytes),
+                    MediaType = png ? MediaType.ImagePng : MediaType.ImageJpeg,
+                },
+            });
+        }
+        conteudo.Add(new BetaTextBlockParam { Text = texto });
+
         var parametros = new MessageCreateParams
         {
             Model = _opt.Modelo,
@@ -224,21 +248,7 @@ public class ClaudeVisionProvider : IVisionProvider
             },
             Messages =
             [
-                new BetaUserMessageParam
-                {
-                    Content = new List<BetaContentBlockParam>
-                    {
-                        new BetaImageBlockParam
-                        {
-                            Source = new BetaBase64ImageSource
-                            {
-                                Data = Convert.ToBase64String(bytes),
-                                MediaType = png ? MediaType.ImagePng : MediaType.ImageJpeg,
-                            },
-                        },
-                        new BetaTextBlockParam { Text = texto },
-                    },
-                },
+                new BetaUserMessageParam { Content = conteudo },
             ],
         };
 

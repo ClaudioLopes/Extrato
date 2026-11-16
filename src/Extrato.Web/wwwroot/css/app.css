@@ -107,6 +107,8 @@ label { display: block; font-size: .82rem; color: var(--suave); margin-bottom: 4
 input, select, textarea {
     width: 100%; font: inherit; color: var(--texto); background: var(--cartao);
     border: 1px solid var(--borda); border-radius: 10px; padding: 9px 11px;
+    /* 16px no mínimo: com letra menor o Safari do iPhone amplia a tela ao tocar no campo e não volta sozinho */
+    font-size: 16px;
 }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--proteina); outline-offset: -1px; }
 input[type=checkbox] { width: auto; }
@@ -148,6 +150,8 @@ td { padding: 8px; border-bottom: 1px solid var(--borda); vertical-align: middle
 
 .lancamento { display: flex; gap: 10px; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed var(--borda); }
 .lancamento:last-child { border-bottom: 0; }
+.lancamento > :not(.cresce) { flex-shrink: 0; }
+.cresce { overflow-wrap: anywhere; }
 
 .abas { display: flex; gap: 4px; background: var(--borda); padding: 4px; border-radius: 12px; margin-bottom: 16px; }
 .abas button { flex: 1; border: 0; background: transparent; padding: 8px; border-radius: 9px; font: inherit; font-weight: 500; color: var(--suave); cursor: pointer; }

@@ -29,6 +29,10 @@ public partial class FakeVisionProvider : IVisionProvider
         return Task.FromResult(new AnalisePratoResultado(itens, ["Análise simulada (FakeVisionProvider): configure Gemini:ApiKey para usar IA real."]));
     }
 
+    public Task<AnalisePratoResultado> AnalisarDescricaoAsync(string descricao, TipoRefeicao tipo, CancellationToken ct) =>
+        Task.FromResult(new AnalisePratoResultado(DaDescricao(descricao),
+            ["Análise simulada (FakeVisionProvider): configure Gemini:ApiKey para usar IA real."]));
+
     public Task<AnaliseAparelhoResultado> AnalisarAparelhoAsync(Stream imagem, string? nome, CancellationToken ct) =>
         Task.FromResult(new AnaliseAparelhoResultado(
             string.IsNullOrWhiteSpace(nome) ? "Leg press 45°" : nome, "Quadríceps", "Anilha", false,

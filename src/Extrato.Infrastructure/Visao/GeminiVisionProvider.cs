@@ -48,6 +48,20 @@ public class GeminiVisionProvider(HttpClient http, IOptions<GeminiOptions> optio
         "forma de preparo e gramas estimadas. Considere um prato raso de ~26 cm como referência. " +
         "Se houver descrição do usuário, ela prevalece sobre a imagem em quantidade e identificação. " +
         "Inclua óleo, molhos e acompanhamentos prováveis como itens separados, com confiança baixa. " +
+        RegrasPorcao + "Não calcule calorias. Responda somente no JSON do schema.";
+
+    /// <summary>Pós e bebidas preparadas: a IA confundia o copo de achocolatado com 200 g de pó.</summary>
+    public const string RegrasPorcao =
+        "Gramas são do alimento como está na tabela: bebida preparada vira dois itens, o líquido (leite, água) " +
+        "e o pó (achocolatado ~20 g por copo, whey ~30 g por dose, creatina 3–5 g, café solúvel ~2 g). " +
+        "Líquidos: 1 ml ≈ 1 g; copo comum 200 ml, lata 350 ml. Medidas caseiras: colher de sopa ~15 g " +
+        "(de arroz ~25 g), concha de feijão ~80 g, fatia de queijo ~20 g, pão francês 50 g, ovo 50 g. ";
+
+    public const string PromptDescricao =
+        "Você converte a descrição de uma refeição brasileira, escrita pelo usuário, em itens com nome em português, " +
+        "forma de preparo e gramas. Use as quantidades informadas; sem quantidade, use a porção típica de uma pessoa " +
+        "e confiança baixa. Nomes genéricos como na Tabela TACO (ex.: \"Leite, de vaca, integral\"); suplementos " +
+        "pelo nome comum (whey protein, creatina). " + RegrasPorcao +
         "Não calcule calorias. Responda somente no JSON do schema.";
 
     public const string PromptAparelho =
@@ -126,7 +140,14 @@ public class GeminiVisionProvider(HttpClient http, IOptions<GeminiOptions> optio
     public async Task<AnalisePratoResultado> AnalisarPratoAsync(Stream imagem, string? descricao, TipoRefeicao tipo, CancellationToken ct)
     {
         var texto = $"Refeição: {tipo}." + (string.IsNullOrWhiteSpace(descricao) ? " Sem descrição do usuário." : $" Descrição do usuário: \"{descricao}\".");
-        var json = await GerarAsync(PromptPrato, SchemaPrato, imagem, texto, ct);
+        return Prato(await GerarAsync(PromptPrato, SchemaPrato, imagem, texto, ct));
+    }
+
+    public async Task<AnalisePratoResultado> AnalisarDescricaoAsync(string descricao, TipoRefeicao tipo, CancellationToken ct) =>
+        Prato(await GerarAsync(PromptDescricao, SchemaPrato, null, $"Refeição: {tipo}. Descrição do usuário: \"{descricao}\".", ct));
+
+    private static AnalisePratoResultado Prato(string json)
+    {
         var r = Desserializar<PratoJson>(json);
         if (r.Itens is null) throw new VisionIndisponivelException("JSON sem a lista de itens.");
         return new AnalisePratoResultado(
@@ -160,29 +181,28 @@ public class GeminiVisionProvider(HttpClient http, IOptions<GeminiOptions> optio
         catch (Exception) { return "(sem detalhes)"; }
     }
 
-    private async Task<string> GerarAsync(string sistema, JsonObject schema, Stream imagem, string texto, CancellationToken ct)
+    /// <param name="imagem">null: só texto (descrição da refeição).</param>
+    private async Task<string> GerarAsync(string sistema, JsonObject schema, Stream? imagem, string texto, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(_opt.ApiKey)) throw new VisionIndisponivelException("Chave do Gemini não configurada.");
 
-        string base64, mime;
-        using (var ms = new MemoryStream())
+        var partes = new JsonArray();
+        if (imagem is not null)
         {
+            using var ms = new MemoryStream();
             await imagem.CopyToAsync(ms, ct);
             var bytes = ms.ToArray();
-            mime = Imagem.SanitizadorImagem.MimeDe(bytes);
-            base64 = Convert.ToBase64String(bytes);
+            partes.Add(new JsonObject
+            {
+                ["inline_data"] = new JsonObject { ["mime_type"] = Imagem.SanitizadorImagem.MimeDe(bytes), ["data"] = Convert.ToBase64String(bytes) }
+            });
         }
+        partes.Add(new JsonObject { ["text"] = texto });
 
         var corpo = new JsonObject
         {
             ["system_instruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = sistema }) },
-            ["contents"] = new JsonArray(new JsonObject
-            {
-                ["role"] = "user",
-                ["parts"] = new JsonArray(
-                    new JsonObject { ["inline_data"] = new JsonObject { ["mime_type"] = mime, ["data"] = base64 } },
-                    new JsonObject { ["text"] = texto })
-            }),
+            ["contents"] = new JsonArray(new JsonObject { ["role"] = "user", ["parts"] = partes }),
             ["generationConfig"] = new JsonObject
             {
                 ["responseMimeType"] = "application/json",

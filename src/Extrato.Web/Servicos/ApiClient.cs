@@ -169,6 +169,9 @@ public class ApiClient(HttpClient http, SessaoEstado sessao, ArmazenamentoLocal 
         return await Ler<RascunhoRefeicaoDto>(await http.PostAsync("api/refeicoes/analisar-foto", form));
     }
 
+    public async Task<RascunhoRefeicaoDto> AnalisarDescricaoAsync(TipoRefeicao tipo, string descricao) =>
+        await Ler<RascunhoRefeicaoDto>(await http.PostAsJsonAsync("api/refeicoes/analisar-descricao", new AnalisarDescricaoDto(tipo, descricao)));
+
     // Fase 2
     public Task<CardapioDto> CardapioAsync(TipoRefeicao tipo, DateOnly data) => Get<CardapioDto>($"api/cardapio?tipo={tipo}&data={data:yyyy-MM-dd}");
     public Task<RelatorioDto> RelatorioAsync(string periodo, DateOnly ate) => Get<RelatorioDto>($"api/relatorios?periodo={periodo}&ate={ate:yyyy-MM-dd}");

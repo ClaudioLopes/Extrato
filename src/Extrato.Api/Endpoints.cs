@@ -45,6 +45,8 @@ public static class Endpoints
             return rascunho ?? throw new ValidacaoException("Imagem não enviada.");
         }).DisableAntiforgery();
 
+        api.MapPost("/refeicoes/analisar-descricao", (AnalisarDescricaoDto dto, RefeicaoService s, CancellationToken ct) => s.AnalisarDescricaoAsync(dto, ct));
+
         api.MapGet("/refeicoes", (DateOnly? data, RefeicaoService s, IRelogio r, CancellationToken ct) => s.ListarDoDiaAsync(data ?? r.Hoje, ct));
         api.MapPost("/refeicoes", (NovaRefeicaoDto dto, RefeicaoService s, CancellationToken ct) => s.CriarAsync(dto, ct));
         api.MapPut("/refeicoes/{id:int}", (int id, NovaRefeicaoDto dto, RefeicaoService s, CancellationToken ct) => s.EditarAsync(id, dto, ct));

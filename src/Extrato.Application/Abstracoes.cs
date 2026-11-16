@@ -67,6 +67,10 @@ public interface IVisionProvider
     Task<AnalisePratoResultado> AnalisarPratoAsync(
         Stream imagem, string? descricao, TipoRefeicao tipo, CancellationToken ct);
 
+    /// <summary>Refeição só pela descrição em texto (sem foto). Padrão: provedor sem essa leitura.</summary>
+    Task<AnalisePratoResultado> AnalisarDescricaoAsync(string descricao, TipoRefeicao tipo, CancellationToken ct) =>
+        throw new VisionIndisponivelException("Este provedor de IA não analisa descrições. Use a busca manual.");
+
     Task<AnaliseAparelhoResultado> AnalisarAparelhoAsync(
         Stream imagem, string? nome, CancellationToken ct);
 

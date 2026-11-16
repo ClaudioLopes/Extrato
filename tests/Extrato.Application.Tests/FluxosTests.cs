@@ -179,6 +179,44 @@ public class FluxosTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Descricao_sem_foto_vira_rascunho_com_match_na_TACO()
+    {
+        var r = await Refeicoes().AnalisarDescricaoAsync(new AnalisarDescricaoDto(TipoRefeicao.Almoco, "2 conchas de arroz, filé de frango ~150 g"), default);
+
+        r.FalhaIA.Should().BeFalse();
+        r.Itens.Select(i => i.AlimentoNome).Should().Equal("Arroz, tipo 1, cozido", "Frango, peito, sem pele, grelhado");
+        r.Itens[1].GramasSugeridas.Should().Be(150);
+        (await _db.Refeicoes.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Descricao_vazia_e_erro_de_validacao()
+    {
+        var act = () => Refeicoes().AnalisarDescricaoAsync(new AnalisarDescricaoDto(TipoRefeicao.Almoco, "  "), default);
+        await act.Should().ThrowAsync<ValidacaoException>();
+    }
+
+    [Fact]
+    public async Task Descricao_com_IA_fora_do_ar_cai_no_fallback_manual()
+    {
+        var r = await Refeicoes(new VisaoQueFalha()).AnalisarDescricaoAsync(new AnalisarDescricaoDto(TipoRefeicao.Noite, "pão com ovo"), default);
+        r.FalhaIA.Should().BeTrue();
+        r.Descricao.Should().Be("pão com ovo");
+    }
+
+    [Theory]
+    [InlineData("Creatina monohidratada (rótulo)", 5)]
+    [InlineData("Whey protein (rótulo)", 30)]
+    [InlineData("Achocolatado, pó", 20)]
+    [InlineData("Leite, de vaca, integral, pó", 20)]
+    [InlineData("Leite integral UHT (rótulo)", 200)]
+    [InlineData("Queijo, requeijão, cremoso", 20)]
+    [InlineData("Salpicão, de frango", 100)]
+    [InlineData("Banana, nanica, crua", 100)]
+    public void Busca_manual_sugere_porcao_tipica(string alimento, decimal gramas) =>
+        PorcaoTipica.Gramas(alimento).Should().Be(gramas);
+
+    [Fact]
     public async Task Falha_da_IA_cai_no_fallback_manual_com_descricao_preservada()
     {
         var r = await Refeicoes(new VisaoQueFalha()).AnalisarFotoAsync(ImagemComExif(), TipoRefeicao.Noite, "pão com ovo", default);

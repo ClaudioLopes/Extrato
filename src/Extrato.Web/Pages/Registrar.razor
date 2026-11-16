@@ -13,17 +13,22 @@
 </div>
 
 <div class="cartao">
-    <div class="grade-2">
-        <div class="campo">
-            <label>Refeição</label>
-            <select @bind="_tipo">
-                @foreach (var t in Enum.GetValues<TipoRefeicao>()) { <option value="@t">@t.Nome()</option> }
-            </select>
-        </div>
-        <div class="campo">
-            <label>Descrição (prevalece sobre a foto)</label>
-            <input @bind="_descricao" placeholder="ex.: 2 conchas de arroz, filé ~150 g" />
-        </div>
+    <div class="campo">
+        <label>Refeição</label>
+        <select @bind="_tipo">
+            @foreach (var t in Enum.GetValues<TipoRefeicao>()) { <option value="@t">@t.Nome()</option> }
+        </select>
+    </div>
+    <div class="campo">
+        <label>O que você comeu (com foto, a descrição prevalece)</label>
+        <textarea rows="2" maxlength="500" @bind="_descricao" @bind:event="oninput"
+                  placeholder="ex.: 200 ml de leite, 1 scoop de whey, 5 g de creatina, 1 banana"></textarea>
+        @if (Rede.Online)
+        {
+            <button class="btn" style="margin-top:6px" disabled="@(string.IsNullOrWhiteSpace(_descricao) || _ocupado)" @onclick="AnalisarDescricao">
+                @(_ocupado ? "Analisando…" : "Montar pela descrição")
+            </button>
+        }
     </div>
 
     <div class="abas">
@@ -190,10 +195,34 @@
         finally { _ocupado = false; }
     }
 
+    private async Task AnalisarDescricao()
+    {
+        if (string.IsNullOrWhiteSpace(_descricao)) return;
+        _ocupado = true; _erro = null; _mensagem = null; _alertasIA = [];
+        try
+        {
+            var r = await Api.AnalisarDescricaoAsync(_tipo, _descricao);
+            if (r.FalhaIA)
+            {
+                _mensagem = $"IA indisponível: {r.MensagemFalha} Use a busca manual.";
+                _aba = Aba.Manual;
+                return;
+            }
+            _origem = OrigemRefeicao.Manual;
+            _alertasIA = r.Alertas.ToList();
+            _itens.Clear();
+            foreach (var i in r.Itens) _itens.Add(ItemEdicao.DaIA(i));
+            _mensagem = _itens.Count == 0 ? "A IA não encontrou alimentos na descrição. Use a busca manual." : "Confira as gramas na revisão abaixo.";
+        }
+        catch (Exception ex) { _erro = ex.Message; _aba = Aba.Manual; }
+        finally { _ocupado = false; }
+    }
+
     private void Adicionar(AlimentoDto a)
     {
         if (_itens.Count == 0) _origem = OrigemRefeicao.Manual;
-        _itens.Add(ItemEdicao.DoAlimento(a, 100));
+        _itens.Add(ItemEdicao.DoAlimento(a, PorcaoTipica.Gramas(a.Nome)));
+        _mensagem = $"{a.Nome}: {PorcaoTipica.Gramas(a.Nome):0} g. Ajuste a quantidade na revisão abaixo.";
     }
 
     private void Definir(ItemEdicao i, AlimentoDto a) => i.Definir(a);

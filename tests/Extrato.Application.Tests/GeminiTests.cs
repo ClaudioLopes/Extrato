@@ -107,6 +107,37 @@ public class GeminiTests
         lento.Chamados.Should().Equal("principal", "reserva");
     }
 
+    /// <summary>Guarda o corpo da requisição e responde com um prato.</summary>
+    private sealed class GoogleQueGuarda : HttpMessageHandler
+    {
+        public string Corpo { get; private set; } = "";
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Corpo = await request.Content!.ReadAsStringAsync(ct);
+            return new(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""
+                {"candidates":[{"content":{"parts":[{"text":"{\"itens\":[{\"nome\":\"Creatina\",\"gramas\":5,\"confianca\":0.9}],\"alertas\":[]}"}]}}]}
+                """, Encoding.UTF8, "application/json")
+            };
+        }
+    }
+
+    [Fact]
+    public async Task Descricao_vai_so_como_texto_sem_imagem()
+    {
+        var google = new GoogleQueGuarda();
+        var g = new GeminiVisionProvider(new HttpClient(google) { BaseAddress = new Uri("https://gemini.teste/v1beta/") },
+            Options.Create(new GeminiOptions { ApiKey = "chave-de-teste", Modelo = "principal", ModelosReserva = [] }),
+            NullLogger<GeminiVisionProvider>.Instance);
+
+        var r = await g.AnalisarDescricaoAsync("5 g de creatina", TipoRefeicao.Tarde, default);
+
+        r.Itens.Single().Gramas.Should().Be(5);
+        google.Corpo.Should().NotContain("inline_data").And.Contain("5 g de creatina").And.Contain("creatina 3");
+    }
+
     [Fact]
     public async Task Cota_esgotada_nao_troca_de_modelo()
     {

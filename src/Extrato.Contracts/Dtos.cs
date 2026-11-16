@@ -154,6 +154,9 @@ public class NovoItemRefeicaoDto
     [Range(0, 1)] public decimal? ConfiancaIA { get; set; }
 }
 
+/// <summary>Refeição descrita em texto, sem foto (ex.: "200 ml de leite, 1 scoop de whey, 5 g de creatina").</summary>
+public record AnalisarDescricaoDto(TipoRefeicao Tipo, string? Descricao);
+
 public class NovaRefeicaoDto
 {
     /// <summary>Gerado no aparelho; reenvios com o mesmo id devolvem a refeição já gravada.</summary>

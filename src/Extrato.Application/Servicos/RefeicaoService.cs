@@ -25,10 +25,24 @@ public class RefeicaoService(
     {
         // imagem inválida → 400 (ValidacaoException sobe); só falhas da IA caem no fallback manual
         await using var preparada = await processador.PrepararAsync(imagem, ct);
+        return await RascunhoAsync(() => vision.AnalisarPratoAsync(preparada, descricao, tipo, ct), tipo, descricao, ct);
+    }
+
+    /// <summary>Refeição só pela descrição (sem foto): a IA converte o texto em itens e gramas; o casamento com a tabela é o mesmo da foto.</summary>
+    public async Task<RascunhoRefeicaoDto> AnalisarDescricaoAsync(AnalisarDescricaoDto dto, CancellationToken ct)
+    {
+        var descricao = dto.Descricao?.Trim();
+        if (string.IsNullOrWhiteSpace(descricao)) throw new ValidacaoException("Escreva o que você comeu.");
+        if (descricao.Length > 500) throw new ValidacaoException("Descrição longa demais (máx. 500 caracteres).");
+        return await RascunhoAsync(() => vision.AnalisarDescricaoAsync(descricao, dto.Tipo, ct), dto.Tipo, descricao, ct);
+    }
+
+    private async Task<RascunhoRefeicaoDto> RascunhoAsync(Func<Task<AnalisePratoResultado>> analisar, TipoRefeicao tipo, string? descricao, CancellationToken ct)
+    {
         AnalisePratoResultado analise;
         try
         {
-            analise = await vision.AnalisarPratoAsync(preparada, descricao, tipo, ct);
+            analise = await analisar();
             ValidarAnalise(analise);
         }
         catch (VisionIndisponivelException ex)
