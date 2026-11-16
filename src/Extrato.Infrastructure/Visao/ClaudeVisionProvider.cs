@@ -187,12 +187,30 @@ public class ClaudeVisionProvider : IVisionProvider
         }
         var png = SanitizadorImagem.MimeDe(bytes) == "image/png";
 
+        try
+        {
+            return await EnviarAsync(sistema, schema, bytes, png, texto, comFallback: true, ct);
+        }
+        catch (AnthropicBadRequestException ex)
+        {
+            // o fallback de modelo é beta e pode não estar liberado para a conta: tenta uma vez sem ele
+            _logger.LogWarning("Claude recusou a requisição com fallback (HTTP 400): {Mensagem}. Tentando sem o fallback.", MensagemApi(ex));
+            return await EnviarAsync(sistema, schema, bytes, png, texto, comFallback: false, ct);
+        }
+    }
+
+    /// <summary>Texto do erro da API (diz qual parâmetro foi recusado; não contém a imagem).</summary>
+    private static string MensagemApi(Exception ex) => ex.Message.Length > 600 ? ex.Message[..600] : ex.Message;
+
+    private async Task<string> EnviarAsync(string sistema, Dictionary<string, JsonElement> schema, byte[] bytes, bool png,
+        string texto, bool comFallback, CancellationToken ct)
+    {
         var parametros = new MessageCreateParams
         {
             Model = _opt.Modelo,
             MaxTokens = 4096,
-            Betas = [AnthropicBeta.ServerSideFallback2026_07_01],
-            Fallbacks = new Default(),
+            Betas = comFallback ? [AnthropicBeta.ServerSideFallback2026_07_01] : null,
+            Fallbacks = comFallback ? new Default() : null,
             System = sistema,
             OutputConfig = new BetaOutputConfig
             {
@@ -237,10 +255,14 @@ public class ClaudeVisionProvider : IVisionProvider
         {
             throw new VisionIndisponivelException("API do Claude indisponível no momento.", ex);
         }
+        catch (AnthropicBadRequestException) when (comFallback)
+        {
+            throw; // GerarAsync tenta de novo sem o fallback
+        }
         catch (AnthropicApiException ex)
         {
-            // 400/401/403 etc.: configuração ou requisição; não logar o conteúdo (contém a imagem)
-            _logger.LogWarning("Claude respondeu erro {Tipo}", ex.GetType().Name);
+            // 400/401/403 etc.: configuração ou requisição. A mensagem da API diz o motivo e não traz a imagem.
+            _logger.LogWarning("Claude respondeu erro {Tipo}: {Mensagem}", ex.GetType().Name, MensagemApi(ex));
             throw new VisionIndisponivelException("A API do Claude recusou a requisição (verifique a chave e o modelo).", ex);
         }
         catch (HttpRequestException ex)
