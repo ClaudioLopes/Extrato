@@ -6,7 +6,9 @@ public record AlvoRefeicao(TipoRefeicao Tipo, bool Registrada, Macros AlvoOrigin
 
 /// <summary>
 /// Seção 6.4: a meta do dia não muda; o restante (meta − consumido) é redistribuído
-/// entre as refeições que faltam, proporcional aos pesos, com piso. Nunca sugere pular refeição.
+/// entre as refeições que faltam, proporcional aos pesos. Sem piso (padrão), o alvo cai até 0 quando
+/// a meta do dia é atingida: comer além do alvo sempre aparece nas próximas refeições.
+/// O piso (fração do alvo original) é opcional, em Ajustes.
 /// </summary>
 public static class DistribuidorRefeicoes
 {
@@ -17,7 +19,7 @@ public static class DistribuidorRefeicoes
         Macros metaDia,
         PesosRefeicao pesos,
         IReadOnlyDictionary<TipoRefeicao, Macros> consumidoPorTipo,
-        decimal piso = 0.5m)
+        decimal piso = 0m)
     {
         if (pesos.Soma <= 0) throw new ArgumentException("Soma dos pesos deve ser positiva.", nameof(pesos));
         if (piso is < 0 or > 1) throw new ArgumentOutOfRangeException(nameof(piso));
@@ -39,13 +41,13 @@ public static class DistribuidorRefeicoes
 
             var fracao = somaPesosFaltam > 0 ? pesos.Para(tipo) / somaPesosFaltam : 0;
             var proporcional = restante.Vezes(fracao);
-            var minimo = original.Vezes(piso);
+            var minimo = original.Vezes(piso); // piso 0: nunca negativo
             var alvo = new Macros(
                 Math.Max(proporcional.Kcal, minimo.Kcal),
                 Math.Max(proporcional.ProteinaG, minimo.ProteinaG),
                 Math.Max(proporcional.CarboG, minimo.CarboG),
                 Math.Max(proporcional.GorduraG, minimo.GorduraG));
-            var noPiso = proporcional.Kcal < minimo.Kcal;
+            var noPiso = piso > 0 && proporcional.Kcal < minimo.Kcal;
             resultado.Add(new AlvoRefeicao(tipo, false, original, alvo, Macros.Zero, noPiso));
         }
 

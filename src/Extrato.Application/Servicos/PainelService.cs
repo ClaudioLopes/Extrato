@@ -32,7 +32,8 @@ public class PainelService(IRelogio relogio, MetaService metas, PerfilService pe
         if (DistribuidorRefeicoes.ProteinaAtrasada(metaMacros.ProteinaG, consumido.ProteinaG, agora, regras.HoraAlertaProteina))
             alertas.Add($"Proteína atrasada: {consumido.ProteinaG:0} g de {metaMacros.ProteinaG:0} g até agora.");
         if (restante.Kcal < 0)
-            alertas.Add($"Dia acima da meta em {-restante.Kcal:0} kcal. As próximas refeições foram reduzidas até o piso; não pule refeições.");
+            alertas.Add($"Dia acima da meta em {-restante.Kcal:0} kcal." +
+                (alvos.Any(a => !a.Registrada) ? " As próximas refeições ficaram sem alvo de calorias: se comer, prefira algo leve e rico em proteína." : ""));
         if (alvos.Any(a => a.NoPiso))
             alertas.Add("Algumas refeições estão no piso mínimo do alvo.");
 

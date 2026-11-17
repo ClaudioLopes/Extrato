@@ -65,7 +65,7 @@ else
                         else
                         {
                             <span class="linha">
-                                @if (_data == Hoje) { <button class="btn mini" disabled="@_ocupado" @onclick="() => SugerirCardapio(r.Tipo)">Cardápio</button> }
+                                @if (_data == Hoje && r.Alvo.Kcal > 0) { <button class="btn mini" disabled="@_ocupado" @onclick="() => SugerirCardapio(r.Tipo)">Cardápio</button> }
                                 <a class="btn mini" href="@($"registrar?tipo={r.Tipo}")">Registrar</a>
                             </span>
                         }
@@ -73,6 +73,7 @@ else
                     @if (!r.Registrada)
                     {
                         <div class="suave pequeno numero">
+                            @if (r.Alvo.Kcal <= 0) { <span class="etiqueta baixa">meta do dia atingida</span> }
                             Alvo @r.Alvo.Kcal.ToString("0") kcal · P @r.Alvo.ProteinaG.ToString("0") · C @r.Alvo.CarboG.ToString("0") · G @r.Alvo.GorduraG.ToString("0")
                             @if (r.Alvo.Kcal != r.AlvoOriginal.Kcal) { <span>(era @r.AlvoOriginal.Kcal.ToString("0"))</span> }
                             @if (r.NoPiso) { <span class="etiqueta baixa">piso</span> }

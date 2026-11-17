@@ -29,7 +29,7 @@ public static class PainelLocal
 
         var pesos = regras is null ? PesosRefeicao.Padrao
             : new PesosRefeicao(regras.PesosRefeicao.Cafe, regras.PesosRefeicao.Almoco, regras.PesosRefeicao.Tarde, regras.PesosRefeicao.Noite);
-        var piso = regras?.PisoRefeicao ?? 0.5m;
+        var piso = regras?.PisoRefeicao ?? 0m;
         if (pesos.Soma <= 0) pesos = PesosRefeicao.Padrao;
 
         var alvos = DistribuidorRefeicoes.Distribuir(meta, pesos, consumidoPorTipo, piso);

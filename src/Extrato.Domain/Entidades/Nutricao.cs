@@ -36,8 +36,8 @@ public class ConfiguracaoRegras
     public Travas Travas { get; set; } = new();
     /// <summary>Hora a partir da qual a proteína abaixo de 50% gera alerta.</summary>
     public int HoraAlertaProteina { get; set; } = 18;
-    /// <summary>Piso das refeições restantes quando o dia estoura (fração do alvo original).</summary>
-    public decimal PisoRefeicao { get; set; } = 0.5m;
+    /// <summary>Piso das refeições restantes quando o dia estoura (fração do alvo original). 0 = sem piso: o alvo cai até 0.</summary>
+    public decimal PisoRefeicao { get; set; }
     /// <summary>Fase 2: mais carboidrato em dia de treino, menos no descanso (média semanal igual).</summary>
     public bool CicloTreinoAtivo { get; set; }
     public int KcalExtraDiaTreino { get; set; } = 200;

@@ -41,6 +41,25 @@ public class DistribuidorRefeicoesTests
     }
 
     [Fact]
+    public void Sem_piso_o_excesso_reduz_as_proximas_ate_zero()
+    {
+        // meta 2800: café 1000 e almoço 1300 → sobram 500 para tarde (0,15) e noite (0,25)
+        var consumido = new Dictionary<TipoRefeicao, Macros>
+        {
+            [TipoRefeicao.CafeDaManha] = new(1000, 30, 150, 30),
+            [TipoRefeicao.Almoco] = new(1300, 50, 150, 40),
+        };
+        var alvos = DistribuidorRefeicoes.Distribuir(Meta, Pesos, consumido);
+        alvos.Single(a => a.Tipo == TipoRefeicao.Tarde).Alvo.Kcal.Should().Be(187.5m);
+        alvos.Single(a => a.Tipo == TipoRefeicao.Noite).Alvo.Kcal.Should().Be(312.5m);
+
+        // comer mais continua reduzindo; passou da meta → 0, nunca negativo
+        consumido[TipoRefeicao.Almoco] = new(2000, 50, 150, 40);
+        var estourado = DistribuidorRefeicoes.Distribuir(Meta, Pesos, consumido);
+        estourado.Where(a => !a.Registrada).Should().OnlyContain(a => a.Alvo.Kcal == 0 && !a.NoPiso);
+    }
+
+    [Fact]
     public void Dia_estourado_cai_ate_o_piso_e_nunca_sugere_pular_refeicao()
     {
         var consumido = new Dictionary<TipoRefeicao, Macros>

@@ -51,7 +51,7 @@ public class RegrasDto
     public PesosRefeicaoDto PesosRefeicao { get; set; } = new();
     public TravasDto Travas { get; set; } = new();
     [Range(0, 23)] public int HoraAlertaProteina { get; set; } = 18;
-    [Range(0, 1)] public decimal PisoRefeicao { get; set; } = 0.5m;
+    [Range(0, 1)] public decimal PisoRefeicao { get; set; }
     public bool CicloTreinoAtivo { get; set; }
     [Range(0, 600)] public int KcalExtraDiaTreino { get; set; } = 200;
     public List<DayOfWeek> DiasTreino { get; set; } = [];

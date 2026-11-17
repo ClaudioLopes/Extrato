@@ -125,7 +125,7 @@ dotnet test
 ```
 
 179 testes: TMB/GET/macros (incluindo o exemplo da documentação: 2.830 kcal · 144 g P · 65 g G · 417 g C), travas,
-redistribuição diária com piso, ajuste semanal (GET adaptativo, 2 semanas, 1×/semana), Epley, estagnação, dupla progressão,
+redistribuição diária (sem piso por padrão), ajuste semanal (GET adaptativo, 2 semanas, 1×/semana), Epley, estagnação, dupla progressão,
 % de gordura (Marinha), busca por trigramas, integridade da TACO, ciclo treino/descanso, cardápio, relatórios, bloqueio da foto do corpo, modo offline (busca, painel e sessão de treino locais iguais ao servidor, idempotência), sanitização de EXIF, escolha do provedor de IA, acesso (primeiro acesso, senha, login), fallback da IA e fluxos completos com EF InMemory.
 
 O app publicado tem um smoke test próprio, que roda no CI e localmente com Docker:
