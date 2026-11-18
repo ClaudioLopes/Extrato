@@ -134,6 +134,22 @@ public class MontadorCardapioTests
     }
 
     [Fact]
+    public void Prato_de_costume_que_encaixa_mal_nao_vem_primeiro_e_nao_repete_arroz()
+    {
+        // tela de 17/11: salmão cru + arroz (de costume na noite) vinha primeiro com P 21 de 75,
+        // e as opções levavam arroz branco + arroz integral
+        var salmao = C(10, "Salmão, sem pele, fresco, cru", 170, 19.3m, 0, 9.7m, porcao: 60, pref: 1m);
+        var arrozHabito = Arroz with { Nome = "Arroz, tipo 1, cozido", Preferencia = 1m };
+        var integral = C(11, "Arroz, integral, cozido", 124, 2.6m, 25.8m, 1m, porcao: 150);
+        var alvo = new Macros(1094, 75, 188, 5);
+
+        var opcoes = MontadorCardapio.Montar(alvo, [salmao, Frango, Patinho, arrozHabito, integral, Feijao, Tomate]);
+
+        opcoes[0].Total.ProteinaG.Should().BeGreaterThan(alvo.ProteinaG * 0.9m);
+        opcoes.Should().OnlyContain(o => o.Itens.Count(i => i.Nome.StartsWith("Arroz")) <= 1);
+    }
+
+    [Fact]
     public void Falta_so_proteina_sugere_proteina_sem_carbo()
     {
         // carbo do dia já estourado (alvo 0), faltam 40 g de proteína em ~250 kcal

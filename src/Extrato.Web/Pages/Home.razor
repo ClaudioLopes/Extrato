@@ -75,7 +75,7 @@ else
                         <div class="suave pequeno numero">
                             @if (r.Alvo.Kcal <= 0) { <span class="etiqueta baixa">meta do dia atingida</span> }
                             Alvo @r.Alvo.Kcal.ToString("0") kcal · P @r.Alvo.ProteinaG.ToString("0") · C @r.Alvo.CarboG.ToString("0") · G @r.Alvo.GorduraG.ToString("0")
-                            @if (r.Alvo.Kcal != r.AlvoOriginal.Kcal) { <span>(era @r.AlvoOriginal.Kcal.ToString("0"))</span> }
+                            @if (r.Alvo.Kcal != r.AlvoOriginal.Kcal) { <span> · era @r.AlvoOriginal.Kcal.ToString("0") kcal</span> }
                             @if (r.NoPiso) { <span class="etiqueta baixa">piso</span> }
                         </div>
                         @if (_cardapios.TryGetValue(r.Tipo, out var cardapio))
