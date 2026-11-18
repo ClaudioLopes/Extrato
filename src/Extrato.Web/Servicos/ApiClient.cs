@@ -331,7 +331,14 @@ public class ApiClient(HttpClient http, SessaoEstado sessao, ArmazenamentoLocal 
     }
 
     // Atividades (natação, vôlei…): print do resumo da pulseira ou digitadas
-    public async Task<RascunhoAtividadeDto> AnalisarPrintAtividadeAsync(IBrowserFile print)
+    public Task<RascunhoAtividadeDto> AnalisarPrintAtividadeAsync(IBrowserFile print) =>
+        EnviarPrintAsync<RascunhoAtividadeDto>(print, "api/atividades/analisar-print");
+
+    /// <summary>Foto da tabela nutricional: mesmo tratamento do print (lado maior, números legíveis).</summary>
+    public Task<RascunhoRotuloDto> AnalisarRotuloAsync(IBrowserFile foto) =>
+        EnviarPrintAsync<RascunhoRotuloDto>(foto, "api/alimentos/analisar-rotulo");
+
+    private async Task<T> EnviarPrintAsync<T>(IBrowserFile print, string url)
     {
         using var form = new MultipartFormDataContent();
         // print de tela: redimensiona como as fotos, mas com lado maior para os números continuarem legíveis
@@ -341,7 +348,7 @@ public class ApiClient(HttpClient http, SessaoEstado sessao, ArmazenamentoLocal 
         var conteudo = new StreamContent(arquivo.OpenReadStream(TamanhoMaxFoto));
         conteudo.Headers.ContentType = new MediaTypeHeaderValue(string.IsNullOrEmpty(arquivo.ContentType) ? "image/jpeg" : arquivo.ContentType);
         form.Add(conteudo, "imagem", "print.jpg");
-        return await Ler<RascunhoAtividadeDto>(await http.PostAsync("api/atividades/analisar-print", form));
+        return await Ler<T>(await http.PostAsync(url, form));
     }
     public Task<AtividadeDto> CriarAtividadeAsync(NovaAtividadeDto dto) => Send<AtividadeDto>(HttpMethod.Post, "api/atividades", dto);
     public Task<List<AtividadeDto>> AtividadesAsync() => GetSalvo<List<AtividadeDto>>("api/atividades", "atividades");

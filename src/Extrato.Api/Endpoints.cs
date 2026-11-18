@@ -53,6 +53,12 @@ public static class Endpoints
         api.MapDelete("/refeicoes/{id:int}", async (int id, RefeicaoService s, CancellationToken ct) => { await s.RemoverAsync(id, ct); return Results.NoContent(); });
 
         api.MapGet("/alimentos", (string? busca, int? limite, AlimentoService s, CancellationToken ct) => s.BuscarAsync(busca, limite ?? 20, ct));
+        api.MapPost("/alimentos/analisar-rotulo", async (HttpRequest req, RotuloService s, CancellationToken ct) =>
+        {
+            RascunhoRotuloDto? r = null;
+            await LerMultipartAsync(req, ct, (_, _) => { }, async stream => r = await s.AnalisarAsync(stream, ct));
+            return r ?? throw new ValidacaoException("Imagem não enviada.");
+        }).DisableAntiforgery();
         api.MapPost("/alimentos", (NovoAlimentoDto dto, AlimentoService s, CancellationToken ct) => s.CriarAsync(dto, ct));
         api.MapGet("/alimentos/catalogo", async (HttpContext ctx, AlimentoService s, CancellationToken ct) =>
         {

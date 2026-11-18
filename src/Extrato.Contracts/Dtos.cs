@@ -120,6 +120,21 @@ public class NovoAlimentoDto
     public List<string> Sinonimos { get; set; } = [];
 }
 
+/// <summary>
+/// Leitura da tabela nutricional pela IA, ainda por porção (como no rótulo). A tela converte para 100 g ao salvar.
+/// </summary>
+public record RascunhoRotuloDto(
+    string? Nome,
+    decimal PorcaoG,
+    decimal Kcal,
+    decimal ProteinaG,
+    decimal CarboG,
+    decimal GorduraG,
+    decimal? FibraG,
+    IReadOnlyList<string> Alertas,
+    bool FalhaIA,
+    string? MensagemFalha);
+
 public record ImportacaoDto(int Inseridos, int Atualizados, IReadOnlyList<string> Erros);
 
 // ---------- Refeições ----------

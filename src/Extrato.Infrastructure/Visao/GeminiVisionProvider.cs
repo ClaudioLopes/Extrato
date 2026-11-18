@@ -126,6 +126,28 @@ public class GeminiVisionProvider(HttpClient http, IOptions<GeminiOptions> optio
     }
     """)!.AsObject();
 
+    private static readonly JsonObject SchemaRotulo = JsonNode.Parse("""
+    {
+      "type": "OBJECT",
+      "properties": {
+        "ehTabelaNutricional": { "type": "BOOLEAN" },
+        "nome": { "type": "STRING" },
+        "porcaoG": { "type": "NUMBER" },
+        "kcal": { "type": "NUMBER" },
+        "proteinaG": { "type": "NUMBER" },
+        "carboG": { "type": "NUMBER" },
+        "gorduraG": { "type": "NUMBER" },
+        "fibraG": { "type": "NUMBER" },
+        "alertas": { "type": "ARRAY", "items": { "type": "STRING" } }
+      },
+      "required": ["ehTabelaNutricional", "porcaoG", "kcal", "proteinaG", "carboG", "gorduraG"]
+    }
+    """)!.AsObject();
+
+    /// <summary>Tabela nutricional (sem pessoas): pode ir ao tier grátis, como a foto do prato.</summary>
+    public async Task<AnaliseRotuloResultado> AnalisarRotuloAsync(Stream imagem, CancellationToken ct) =>
+        Desserializar<RotuloJson>(await GerarAsync(RotuloJson.Prompt, SchemaRotulo, imagem, RotuloJson.Texto, ct)).ParaResultado();
+
     /// <summary>Print de resumo (números da pulseira, sem rosto nem corpo): pode ir ao tier grátis, como a foto do prato.</summary>
     public async Task<AnaliseAtividadeResultado> AnalisarAtividadeAsync(Stream imagem, CancellationToken ct)
     {

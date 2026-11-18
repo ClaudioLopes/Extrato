@@ -226,6 +226,7 @@ curl -b cookies.txt -F "arquivo=@tabela.csv" "http://localhost:8080/api/alimento
 | GET/POST | `/api/refeicoes` | Refeições do dia / gravar refeição confirmada |
 | PUT/DELETE | `/api/refeicoes/{id}` | Editar / remover |
 | GET/POST | `/api/alimentos` | Busca aproximada / cadastro por rótulo |
+| POST | `/api/alimentos/analisar-rotulo` | Lê a foto da tabela nutricional (rascunho por porção, nada é salvo) |
 | POST | `/api/alimentos/importar` | Importa CSV (TACO) |
 | GET/POST/DELETE | `/api/favoritos` | Porções favoritas; `POST /api/favoritos/{id}/registrar?tipo=` lança a refeição |
 | GET | `/api/painel/dia?data=` | Meta (do dia de treino/descanso), consumido, restante, alvos por refeição e sugestões |

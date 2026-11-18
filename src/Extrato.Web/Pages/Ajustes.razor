@@ -164,16 +164,29 @@
 <div class="grade">
     <section class="cartao">
         <h2>Alimento por rótulo</h2>
-        <p class="suave pequeno">Industrializados (whey, pré-treino…) não estão na TACO. Valores por 100 g.</p>
-        <div class="campo"><label>Nome</label><input @bind="_alimento.Nome" /></div>
-        <div class="grade-2">
-            <div class="campo"><label>kcal</label><input type="number" @bind="_alimento.Kcal100g" /></div>
-            <div class="campo"><label>Proteína g</label><input type="number" step="0.1" @bind="_alimento.Proteina100g" /></div>
-            <div class="campo"><label>Carboidrato g</label><input type="number" step="0.1" @bind="_alimento.Carbo100g" /></div>
-            <div class="campo"><label>Gordura g</label><input type="number" step="0.1" @bind="_alimento.Gordura100g" /></div>
+        <p class="suave pequeno">Industrializados (whey, pré-treino…) não estão na TACO. Digite os números como estão no rótulo,
+            na porção dele: o app converte para 100 g. Ou fotografe a tabela nutricional e confira o que a IA leu.</p>
+        <div class="linha campo">
+            <InputFile OnChange="e => _fotoRotulo = e.File" accept="image/*" />
+            <button class="btn" disabled="@(_fotoRotulo == null || _ocupado)" @onclick="LerRotulo">@(_lendoRotulo ? "Lendo…" : "Ler tabela pela foto")</button>
         </div>
-        <div class="campo"><label>Sinônimos (vírgula)</label><input @bind="_sinonimos" placeholder="ex.: whey, proteína do soro" /></div>
-        <button class="btn primario" disabled="@(_ocupado || string.IsNullOrWhiteSpace(_alimento.Nome))" @onclick="SalvarAlimento">Cadastrar alimento</button>
+        @foreach (var a in _alertasRotulo) { <div class="aviso">@a</div> }
+        @if (_msgRotulo != null) { <div class="@(_msgRotuloErro ? "erro" : "ok")">@_msgRotulo</div> }
+        <div class="campo"><label>Nome</label><input @bind="_rotNome" placeholder="ex.: Pré-treino Haze melancia" /></div>
+        <div class="campo"><label>Porção do rótulo (g)</label><input type="number" step="0.5" min="0.5" @bind="_rotPorcao" @bind:event="oninput" /></div>
+        <div class="grade-2">
+            <div class="campo"><label>kcal na porção</label><input type="number" step="0.1" @bind="_rotKcal" @bind:event="oninput" /></div>
+            <div class="campo"><label>Proteína g</label><input type="number" step="0.1" @bind="_rotProt" @bind:event="oninput" /></div>
+            <div class="campo"><label>Carboidrato g</label><input type="number" step="0.1" @bind="_rotCarb" @bind:event="oninput" /></div>
+            <div class="campo"><label>Gordura g</label><input type="number" step="0.1" @bind="_rotGord" @bind:event="oninput" /></div>
+        </div>
+        @if (_rotPorcao > 0 && _rotPorcao != 100)
+        {
+            var c = CadastroRotulo();
+            <p class="suave pequeno numero">Por 100 g: @c.Kcal100g.ToString("0") kcal · P @c.Proteina100g.ToString("0.#") · C @c.Carbo100g.ToString("0.#") · G @c.Gordura100g.ToString("0.#")</p>
+        }
+        <div class="campo"><label>Sinônimos (vírgula)</label><input @bind="_sinonimos" placeholder="ex.: pré-treino, haze" /></div>
+        <button class="btn primario" disabled="@(_ocupado || string.IsNullOrWhiteSpace(_rotNome) || _rotPorcao <= 0)" @onclick="SalvarAlimento">Cadastrar alimento</button>
     </section>
 
     <section class="cartao">
@@ -216,7 +229,14 @@
     private MetaDto? _meta;
     private CalculoMetaDto? _calculo;
     private MetaManualDto _manual = new();
-    private NovoAlimentoDto _alimento = new();
+    // alimento por rótulo: números na porção do rótulo; convertidos para 100 g ao cadastrar
+    private string _rotNome = "";
+    private decimal _rotPorcao = 100, _rotKcal, _rotProt, _rotCarb, _rotGord;
+    private decimal? _rotFibra;
+    private IBrowserFile? _fotoRotulo;
+    private bool _lendoRotulo, _msgRotuloErro;
+    private string? _msgRotulo;
+    private List<string> _alertasRotulo = [];
     private NovoFavoritoDto _novoFav = new();
     private List<(NovoFavoritoItemDto Item, string Nome)> _itensFav = [];
     private List<FavoritoDto> _favoritos = [];
@@ -305,12 +325,38 @@
 
     private Task SalvarManual() => Executar(async () => { await Api.MetaManualAsync(_manual); await CarregarMeta(); }, "Meta manual gravada.");
 
-    private Task SalvarAlimento() => Executar(async () =>
+    private NovoAlimentoDto CadastroRotulo() => Rotulo.ParaCadastro(_rotNome, _rotPorcao, _rotKcal, _rotProt, _rotCarb, _rotGord, _rotFibra,
+        _sinonimos.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+    private async Task SalvarAlimento()
     {
-        _alimento.Sinonimos = _sinonimos.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-        var a = await Api.CriarAlimentoAsync(_alimento);
-        _alimento = new(); _sinonimos = "";
-    }, "Alimento cadastrado.");
+        _ocupado = true; _msgRotulo = null; _alertasRotulo = [];
+        try
+        {
+            var a = await Api.CriarAlimentoAsync(CadastroRotulo());
+            _msgRotulo = $"{a.Nome} cadastrado. Já aparece na busca ao registrar refeição."; _msgRotuloErro = false;
+            _rotNome = ""; _rotPorcao = 100; _rotKcal = _rotProt = _rotCarb = _rotGord = 0; _rotFibra = null; _sinonimos = ""; _fotoRotulo = null;
+        }
+        catch (Exception ex) { _msgRotulo = ex.Message; _msgRotuloErro = true; }
+        finally { _ocupado = false; }
+    }
+
+    private async Task LerRotulo()
+    {
+        if (_fotoRotulo == null) return;
+        _ocupado = _lendoRotulo = true; _msgRotulo = null; _alertasRotulo = [];
+        try
+        {
+            var r = await Api.AnalisarRotuloAsync(_fotoRotulo);
+            if (r.FalhaIA) { _msgRotulo = $"IA indisponível: {r.MensagemFalha} Preencha à mão."; _msgRotuloErro = true; return; }
+            _alertasRotulo = r.Alertas.ToList();
+            if (string.IsNullOrWhiteSpace(_rotNome) && r.Nome != null) _rotNome = r.Nome;
+            _rotPorcao = r.PorcaoG; _rotKcal = r.Kcal; _rotProt = r.ProteinaG; _rotCarb = r.CarboG; _rotGord = r.GorduraG; _rotFibra = r.FibraG;
+            _msgRotulo = "Tabela lida. Confira os números com o rótulo antes de cadastrar."; _msgRotuloErro = false;
+        }
+        catch (Exception ex) { _msgRotulo = ex.Message; _msgRotuloErro = true; }
+        finally { _ocupado = _lendoRotulo = false; }
+    }
 
     private Task SalvarFavorito() => Executar(async () =>
     {

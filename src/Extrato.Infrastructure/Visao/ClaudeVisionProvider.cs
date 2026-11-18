@@ -156,6 +156,28 @@ public class ClaudeVisionProvider : IVisionProvider
         return Desserializar<AtividadeJson>(json).ParaResultado();
     }
 
+    private static readonly Dictionary<string, JsonElement> SchemaRotulo = Schema(new
+    {
+        type = "object",
+        additionalProperties = false,
+        required = new[] { "ehTabelaNutricional", "nome", "porcaoG", "kcal", "proteinaG", "carboG", "gorduraG", "fibraG", "alertas" },
+        properties = new
+        {
+            ehTabelaNutricional = new { type = "boolean" },
+            nome = new { type = "string" },
+            porcaoG = new { type = "number" },
+            kcal = new { type = "number" },
+            proteinaG = new { type = "number" },
+            carboG = new { type = "number" },
+            gorduraG = new { type = "number" },
+            fibraG = new { type = "number" },
+            alertas = new { type = "array", items = new { type = "string" } }
+        }
+    });
+
+    public async Task<AnaliseRotuloResultado> AnalisarRotuloAsync(Stream imagem, CancellationToken ct) =>
+        Desserializar<RotuloJson>(await GerarAsync(RotuloJson.Prompt, SchemaRotulo, imagem, RotuloJson.Texto, ct)).ParaResultado();
+
     public async Task<AnalisePratoResultado> AnalisarPratoAsync(Stream imagem, string? descricao, TipoRefeicao tipo, CancellationToken ct)
     {
         var texto = $"Refeição: {tipo}." + (string.IsNullOrWhiteSpace(descricao)

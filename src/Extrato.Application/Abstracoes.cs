@@ -74,6 +74,10 @@ public interface IVisionProvider
     Task<AnaliseAparelhoResultado> AnalisarAparelhoAsync(
         Stream imagem, string? nome, CancellationToken ct);
 
+    /// <summary>Lê a tabela nutricional de um rótulo (suplemento, industrializado). Padrão: provedor sem essa leitura.</summary>
+    Task<AnaliseRotuloResultado> AnalisarRotuloAsync(Stream imagem, CancellationToken ct) =>
+        throw new VisionIndisponivelException("Este provedor de IA não lê rótulos. Preencha à mão.");
+
     /// <summary>Lê o print do resumo de uma atividade (app da pulseira). Padrão: provedor sem essa leitura.</summary>
     Task<AnaliseAtividadeResultado> AnalisarAtividadeAsync(Stream imagem, CancellationToken ct) =>
         throw new VisionIndisponivelException("Este provedor de IA não lê prints de atividade. Preencha à mão.");
@@ -93,6 +97,20 @@ public record AnaliseAtividadeResultado(
     int? KcalTotais,
     int? DistanciaM,
     int? FcMedia,
+    IReadOnlyList<string> Alertas);
+
+/// <summary>
+/// Números da tabela nutricional como aparecem no rótulo, para a porção indicada (ou 100 g, se o rótulo tiver a coluna).
+/// </summary>
+public record AnaliseRotuloResultado(
+    bool EhTabelaNutricional,
+    string? Nome,
+    decimal? PorcaoG,
+    decimal? Kcal,
+    decimal? ProteinaG,
+    decimal? CarboG,
+    decimal? GorduraG,
+    decimal? FibraG,
     IReadOnlyList<string> Alertas);
 
 /// <summary>Falha recuperável da IA (429 esgotado, timeout, JSON inválido): o app cai no registro manual.</summary>
