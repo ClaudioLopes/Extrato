@@ -107,6 +107,38 @@ public class MontadorCardapioTests
     }
 
     [Fact]
+    public void Jantar_completa_a_proteina_mesmo_com_carbo_alto_demais_para_uma_porcao()
+    {
+        // 17/11: faltavam 1094 kcal, P 75, C 188, G 6 para a noite. Os 188 g de carbo pedem 670 g de arroz
+        // (limite 300 g): a proteína não pode contar com a do arroz que não entrou.
+        var alvo = new Macros(1094, 75, 188, 6);
+        var opcoes = MontadorCardapio.Montar(alvo, [Frango, Patinho, Arroz, Batata, Feijao, Tomate]);
+
+        opcoes.Should().NotBeEmpty();
+        opcoes.Should().OnlyContain(o => o.Total.ProteinaG >= alvo.ProteinaG * 0.95m,
+            string.Join(" | ", opcoes.Select(o => $"{string.Join(" + ", o.Itens.Select(i => $"{i.Nome} {i.Gramas}"))} = P {o.Total.ProteinaG:0}")));
+    }
+
+    [Fact]
+    public void Falta_so_proteina_sugere_proteina_sem_carbo()
+    {
+        // carbo do dia já estourado (alvo 0), faltam 40 g de proteína em ~250 kcal
+        var opcoes = MontadorCardapio.Montar(new Macros(250, 40, 0, 0), [Frango, Patinho, Arroz, Batata]);
+
+        opcoes.Should().NotBeEmpty();
+        opcoes[0].Itens.Should().ContainSingle().Which.Nome.Should().Be("Frango");
+        opcoes[0].Total.ProteinaG.Should().BeApproximately(40, 3);
+    }
+
+    [Fact]
+    public void Meta_de_kcal_atingida_mas_faltando_proteina_ainda_sugere()
+    {
+        var opcoes = MontadorCardapio.Montar(new Macros(0, 30, 0, 0), [Frango, Patinho, Arroz]);
+        opcoes.Should().NotBeEmpty();
+        opcoes[0].Total.ProteinaG.Should().BeApproximately(30, 3);
+    }
+
+    [Fact]
     public void Opcoes_variam_a_fonte_de_proteina()
     {
         var opcoes = MontadorCardapio.Montar(new Macros(900, 50, 120, 20), [Frango, Patinho, Arroz, Feijao]);

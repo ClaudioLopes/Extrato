@@ -71,6 +71,29 @@ public class Fase2FluxosTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Cardapio_da_noite_completa_a_proteina_que_falta_no_dia()
+    {
+        // como em 17/11: dia com muito carbo e pouca proteína até a tarde (~1730 kcal, ~63 g de proteína)
+        var frango = await _db.Alimentos.SingleAsync(a => a.Nome == "Frango, peito, sem pele, grelhado");
+        var arroz = await _db.Alimentos.SingleAsync(a => a.Nome == "Arroz, tipo 1, cozido");
+        // café, almoço e tarde registrados: só a noite falta, com o resto do dia
+        foreach (var (tipo, gFrango, gArroz) in new[] { (TipoRefeicao.CafeDaManha, 0, 280), (TipoRefeicao.Almoco, 100, 340), (TipoRefeicao.Tarde, 0, 610) })
+            await Refeicoes().CriarAsync(new NovaRefeicaoDto
+            {
+                DataHora = _relogio.Agora, Tipo = tipo,
+                Itens = [.. gFrango > 0 ? [new NovoItemRefeicaoDto { AlimentoId = frango.Id, Gramas = gFrango }] : Array.Empty<NovoItemRefeicaoDto>(),
+                         new() { AlimentoId = arroz.Id, Gramas = gArroz }]
+            }, default);
+
+        var c = await new CardapioService(_db, _usuario, _relogio, Painel()).SugerirAsync(TipoRefeicao.Noite, null, default);
+
+        c.Opcoes.Should().NotBeEmpty();
+        c.Opcoes.Should().OnlyContain(o => o.Total.ProteinaG >= c.Alvo.ProteinaG * 0.9m,
+            $"alvo P {c.Alvo.ProteinaG:0}: " + string.Join(" | ", c.Opcoes.Select(o =>
+                $"{string.Join(" + ", o.Itens.Select(i => $"{i.Alimento} {i.Gramas:0} g"))} = P {o.Total.ProteinaG:0}, {o.Total.Kcal:0} kcal")));
+    }
+
+    [Fact]
     public async Task Relatorio_semanal_conta_aderencia_e_proteina()
     {
         var frango = await _db.Alimentos.SingleAsync(a => a.Nome == "Frango, peito, sem pele, grelhado");

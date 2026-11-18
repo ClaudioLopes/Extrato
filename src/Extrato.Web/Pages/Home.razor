@@ -65,7 +65,7 @@ else
                         else
                         {
                             <span class="linha">
-                                @if (_data == Hoje && r.Alvo.Kcal > 0) { <button class="btn mini" disabled="@_ocupado" @onclick="() => SugerirCardapio(r.Tipo)">Cardápio</button> }
+                                @if (_data == Hoje && (r.Alvo.Kcal > 0 || r.Alvo.ProteinaG >= 10)) { <button class="btn mini" disabled="@_ocupado" @onclick="() => SugerirCardapio(r.Tipo)">Cardápio</button> }
                                 <a class="btn mini" href="@($"registrar?tipo={r.Tipo}")">Registrar</a>
                             </span>
                         }

@@ -33,30 +33,39 @@ public static class MontadorCardapio
         return PapelAlimento.Complemento;
     }
 
+    /// <summary>Proteína que ainda vale sugerir mesmo com a meta de kcal do dia atingida.</summary>
+    public const decimal ProteinaMinimaSemKcal = 10;
+
     public static IReadOnlyList<OpcaoCardapio> Montar(Macros alvo, IReadOnlyList<CandidatoCardapio> candidatos, int maxOpcoes = 3)
     {
-        if (alvo.Kcal < KcalMinimaRefeicao) return [];
+        // kcal do dia atingida mas faltando proteína: prato de proteína magra (~5 kcal por g de proteína)
+        if (alvo.Kcal < KcalMinimaRefeicao)
+        {
+            if (alvo.ProteinaG < ProteinaMinimaSemKcal) return [];
+            alvo = alvo with { Kcal = Math.Max(alvo.Kcal, alvo.ProteinaG * 5) };
+        }
 
         IEnumerable<CandidatoCardapio> Top(PapelAlimento papel, int n) =>
             candidatos.Where(c => c.Papel == papel).OrderByDescending(c => c.Preferencia).ThenBy(c => c.Nome).Take(n);
 
         var proteinas = Top(PapelAlimento.Proteina, 6).ToList();
-        var carbos = Top(PapelAlimento.Carboidrato, 6).ToList();
+        // null = só proteína (quando o carbo do dia já foi atingido, é o que encaixa melhor)
+        var carbos = Top(PapelAlimento.Carboidrato, 6).Cast<CandidatoCardapio?>().Append(null).ToList();
         var complementos = Top(PapelAlimento.Complemento, 4).Cast<CandidatoCardapio?>().Append(null).ToList();
-        if (proteinas.Count == 0 || carbos.Count == 0) return [];
+        if (proteinas.Count == 0) return [];
 
         var opcoes = new List<(OpcaoCardapio Opcao, decimal Score, int ProteinaId, bool Habito)>();
         foreach (var p in proteinas)
         foreach (var c in carbos)
         {
-            if (p.AlimentoId == c.AlimentoId) continue;
-            var habito = p.Preferencia >= LimiarHabito && c.Preferencia >= LimiarHabito;
+            if (p.AlimentoId == c?.AlimentoId) continue;
+            var habito = p.Preferencia >= LimiarHabito && (c?.Preferencia ?? 0) >= LimiarHabito;
             foreach (var x in complementos)
             {
                 var opcao = Resolver(alvo, p, c, x);
                 if (opcao is null) continue;
                 // rotina: proteína e carboidrato definem o prato
-                var pref = (p.Preferencia + c.Preferencia) / 2;
+                var pref = (p.Preferencia + (c?.Preferencia ?? 0)) / 2;
                 opcoes.Add((opcao, opcao.Erro - PesoRotina * pref, p.AlimentoId, habito));
             }
         }
@@ -73,8 +82,12 @@ public static class MontadorCardapio
     /// <summary>Preferência a partir da qual o alimento conta como hábito naquela refeição.</summary>
     public const decimal LimiarHabito = 0.6m;
 
-    /// <summary>Resolve gp e gc no sistema 2×2 (proteína e carboidrato), com limites de porção.</summary>
-    internal static OpcaoCardapio? Resolver(Macros alvo, CandidatoCardapio p, CandidatoCardapio c, CandidatoCardapio? x)
+    /// <summary>
+    /// Resolve gp e gc no sistema 2×2 (proteína e carboidrato), com limites de porção. Se o carbo bate no limite,
+    /// a proteína é recalculada com o carbo que de fato entrou (senão contaria a proteína do carbo cortado).
+    /// Sem carbo (c null): só a proteína, pelo alvo de proteína.
+    /// </summary>
+    internal static OpcaoCardapio? Resolver(Macros alvo, CandidatoCardapio p, CandidatoCardapio? c, CandidatoCardapio? x)
     {
         var gx = x?.GramasPadrao ?? 0;
         var macX = x is null ? Macros.Zero : x.Por100g.Vezes(gx / 100m);
@@ -82,28 +95,39 @@ public static class MontadorCardapio
         if (resto.Kcal <= 0) return null;
 
         // por grama
-        decimal a1 = p.Por100g.ProteinaG / 100, b1 = c.Por100g.ProteinaG / 100;
-        decimal a2 = p.Por100g.CarboG / 100, b2 = c.Por100g.CarboG / 100;
-        var det = a1 * b2 - b1 * a2;
-        decimal gp, gc;
-        if (Math.Abs(det) > 0.0001m)
+        decimal a1 = p.Por100g.ProteinaG / 100, a2 = p.Por100g.CarboG / 100;
+        decimal gp, gc = 0;
+        if (c is null)
         {
-            gp = (resto.ProteinaG * b2 - b1 * resto.CarboG) / det;
-            gc = (a1 * resto.CarboG - a2 * resto.ProteinaG) / det;
+            gp = a1 > 0 ? resto.ProteinaG / a1 : p.GramasMin;
         }
         else
         {
-            gp = a1 > 0 ? resto.ProteinaG / a1 : p.GramasMin;
-            gc = b2 > 0 ? (resto.CarboG - a2 * gp) / b2 : c.GramasMin;
+            decimal b1 = c.Por100g.ProteinaG / 100, b2 = c.Por100g.CarboG / 100;
+            var det = a1 * b2 - b1 * a2;
+            if (Math.Abs(det) > 0.0001m)
+            {
+                gp = (resto.ProteinaG * b2 - b1 * resto.CarboG) / det;
+                gc = (a1 * resto.CarboG - a2 * resto.ProteinaG) / det;
+            }
+            else
+            {
+                gp = a1 > 0 ? resto.ProteinaG / a1 : p.GramasMin;
+                gc = b2 > 0 ? (resto.CarboG - a2 * gp) / b2 : c.GramasMin;
+            }
+
+            // a proteína manda: com o carbo no limite, refaz a proteína com o carbo real (e vice-versa)
+            var gcLimite = Math.Clamp(gc, c.GramasMin, c.GramasMax);
+            if (gcLimite != gc && a1 > 0) gp = (resto.ProteinaG - b1 * gcLimite) / a1;
+            gc = gcLimite;
+            var gpLimite = Math.Clamp(gp, p.GramasMin, p.GramasMax);
+            if (gpLimite != gp && b2 > 0) gc = Math.Clamp((resto.CarboG - a2 * gpLimite) / b2, c.GramasMin, c.GramasMax);
+            gc = Arredondar(gc);
         }
         gp = Arredondar(Math.Clamp(gp, p.GramasMin, p.GramasMax));
-        gc = Arredondar(Math.Clamp(gc, c.GramasMin, c.GramasMax));
 
-        var itens = new List<ItemCardapio>
-        {
-            new(p.AlimentoId, p.Nome, gp, p.Por100g.Vezes(gp / 100m)),
-            new(c.AlimentoId, c.Nome, gc, c.Por100g.Vezes(gc / 100m)),
-        };
+        var itens = new List<ItemCardapio> { new(p.AlimentoId, p.Nome, gp, p.Por100g.Vezes(gp / 100m)) };
+        if (c is not null) itens.Add(new(c.AlimentoId, c.Nome, gc, c.Por100g.Vezes(gc / 100m)));
         if (x is not null) itens.Add(new(x.AlimentoId, x.Nome, gx, macX));
         var total = Macros.Somar(itens.Select(i => i.Macros));
         return new OpcaoCardapio(itens, total, Erro(alvo, total));
