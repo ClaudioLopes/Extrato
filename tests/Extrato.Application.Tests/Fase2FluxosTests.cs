@@ -91,6 +91,13 @@ public class Fase2FluxosTests : IAsyncLifetime
         c.Opcoes.Should().OnlyContain(o => o.Total.ProteinaG >= c.Alvo.ProteinaG * 0.9m,
             $"alvo P {c.Alvo.ProteinaG:0}: " + string.Join(" | ", c.Opcoes.Select(o =>
                 $"{string.Join(" + ", o.Itens.Select(i => $"{i.Alimento} {i.Gramas:0} g"))} = P {o.Total.ProteinaG:0}, {o.Total.Kcal:0} kcal")));
+
+        // a melhor opção encaixa os quatro macros, não só a proteína
+        var melhor = c.Opcoes[0].Total;
+        melhor.Kcal.Should().BeApproximately(c.Alvo.Kcal, c.Alvo.Kcal * 0.1m);
+        melhor.ProteinaG.Should().BeApproximately(c.Alvo.ProteinaG, c.Alvo.ProteinaG * 0.1m);
+        melhor.CarboG.Should().BeApproximately(c.Alvo.CarboG, c.Alvo.CarboG * 0.1m);
+        melhor.GorduraG.Should().BeApproximately(c.Alvo.GorduraG, c.Alvo.GorduraG * 0.2m);
     }
 
     [Fact]

@@ -120,6 +120,20 @@ public class MontadorCardapioTests
     }
 
     [Fact]
+    public void Almoco_encaixa_os_quatro_macros_com_azeite_para_a_gordura()
+    {
+        // alvo que cabe em porções de verdade (até 300 g de cada carbo)
+        var azeite = C(7, "Azeite", 884, 0, 0, 100, porcao: 10);
+        var alvo = new Macros(700, 45, 75, 20);
+        var o = MontadorCardapio.Montar(alvo, [Frango, Patinho, Arroz, Batata, Feijao, Tomate, azeite])[0];
+
+        o.Total.Kcal.Should().BeApproximately(alvo.Kcal, alvo.Kcal * 0.1m);
+        o.Total.ProteinaG.Should().BeApproximately(alvo.ProteinaG, alvo.ProteinaG * 0.1m);
+        o.Total.CarboG.Should().BeApproximately(alvo.CarboG, alvo.CarboG * 0.1m);
+        o.Total.GorduraG.Should().BeApproximately(alvo.GorduraG, alvo.GorduraG * 0.25m);
+    }
+
+    [Fact]
     public void Falta_so_proteina_sugere_proteina_sem_carbo()
     {
         // carbo do dia já estourado (alvo 0), faltam 40 g de proteína em ~250 kcal

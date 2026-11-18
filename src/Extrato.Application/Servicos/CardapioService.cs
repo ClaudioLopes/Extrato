@@ -32,6 +32,7 @@ public class CardapioService(IAppDbContext db, IUsuarioAtual usuario, IRelogio r
             ("Arroz, tipo 1, cozido", 150), ("Arroz, integral, cozido", 150), ("Batata, inglesa, cozida", 150),
             ("Batata, doce, cozida", 150), ("Mandioca, cozida", 150),
             ("Feijão, carioca, cozido", 100), ("Alface, crespa, crua", 30), ("Tomate, com semente, cru", 50),
+            ("Azeite, de oliva, extra virgem", 10),
         ],
         [TipoRefeicao.Tarde] =
         [

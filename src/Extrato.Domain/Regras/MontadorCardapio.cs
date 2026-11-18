@@ -13,7 +13,7 @@ public record OpcaoCardapio(IReadOnlyList<ItemCardapio> Itens, Macros Total, dec
 
 /// <summary>
 /// Fase 2: cardápio sugerido por refeição. Combina proteína + carboidrato (+ complemento opcional)
-/// e resolve as gramas para aproximar proteína e carboidrato do alvo; gordura e kcal entram no erro.
+/// e procura as gramas que aproximam kcal, proteína, carboidrato e gordura do alvo ao mesmo tempo.
 /// Macros sempre da tabela. Determinístico e testável (sem IA).
 /// </summary>
 public static class MontadorCardapio
@@ -51,7 +51,9 @@ public static class MontadorCardapio
         var proteinas = Top(PapelAlimento.Proteina, 6).ToList();
         // null = só proteína (quando o carbo do dia já foi atingido, é o que encaixa melhor)
         var carbos = Top(PapelAlimento.Carboidrato, 6).Cast<CandidatoCardapio?>().Append(null).ToList();
-        var complementos = Top(PapelAlimento.Complemento, 4).Cast<CandidatoCardapio?>().Append(null).ToList();
+        // acompanhamento: complemento (salada, azeite) ou um segundo carbo (arroz + feijão)
+        var complementos = Top(PapelAlimento.Complemento, 4).Concat(Top(PapelAlimento.Carboidrato, 4))
+            .Cast<CandidatoCardapio?>().Append(null).ToList();
         if (proteinas.Count == 0) return [];
 
         var opcoes = new List<(OpcaoCardapio Opcao, decimal Score, int ProteinaId, bool Habito)>();
@@ -62,6 +64,7 @@ public static class MontadorCardapio
             var habito = p.Preferencia >= LimiarHabito && (c?.Preferencia ?? 0) >= LimiarHabito;
             foreach (var x in complementos)
             {
+                if (x is not null && (x.AlimentoId == c?.AlimentoId || x.AlimentoId == p.AlimentoId)) continue;
                 var opcao = Resolver(alvo, p, c, x);
                 if (opcao is null) continue;
                 // rotina: proteína e carboidrato definem o prato
@@ -83,66 +86,67 @@ public static class MontadorCardapio
     public const decimal LimiarHabito = 0.6m;
 
     /// <summary>
-    /// Resolve gp e gc no sistema 2×2 (proteína e carboidrato), com limites de porção. Se o carbo bate no limite,
-    /// a proteína é recalculada com o carbo que de fato entrou (senão contaria a proteína do carbo cortado).
-    /// Sem carbo (c null): só a proteína, pelo alvo de proteína.
+    /// Procura as gramas (passos de 5 g, dentro dos limites de cada porção) que deixam kcal, proteína,
+    /// carboidrato e gordura juntos mais perto do alvo, pelo mesmo <see cref="Erro"/> que ordena as opções.
+    /// O complemento (salada, azeite…) entra com 0,5× a 2× a porção padrão. Sem carbo (c null): só proteína.
     /// </summary>
     internal static OpcaoCardapio? Resolver(Macros alvo, CandidatoCardapio p, CandidatoCardapio? c, CandidatoCardapio? x)
     {
-        var gx = x?.GramasPadrao ?? 0;
-        var macX = x is null ? Macros.Zero : x.Por100g.Vezes(gx / 100m);
-        var resto = alvo - macX;
-        if (resto.Kcal <= 0) return null;
+        static (double K, double P, double C, double G) PorGrama(CandidatoCardapio a) =>
+            ((double)a.Por100g.Kcal / 100, (double)a.Por100g.ProteinaG / 100, (double)a.Por100g.CarboG / 100, (double)a.Por100g.GorduraG / 100);
 
-        // por grama
-        decimal a1 = p.Por100g.ProteinaG / 100, a2 = p.Por100g.CarboG / 100;
-        decimal gp, gc = 0;
-        if (c is null)
+        var mp = PorGrama(p);
+        var mc = c is null ? default : PorGrama(c);
+        var mx = x is null ? default : PorGrama(x);
+        var gramasX = x is null ? [0m] : new[] { 0.5m, 1m, 1.5m, 2m }.Select(f => Arredondar(x.GramasPadrao * f)).Distinct().ToArray();
+        var gramasC = c is null ? [0m] : Faixa(c);
+        var gramasP = Faixa(p);
+        var a = ((double)alvo.Kcal, (double)alvo.ProteinaG, (double)alvo.CarboG, (double)alvo.GorduraG);
+
+        double melhor = double.MaxValue;
+        decimal bp = 0, bc = 0, bx = 0;
+        foreach (var gx in gramasX)
+        foreach (var gc in gramasC)
+        foreach (var gp in gramasP)
         {
-            gp = a1 > 0 ? resto.ProteinaG / a1 : p.GramasMin;
+            double dp = (double)gp, dc = (double)gc, dx = (double)gx;
+            var erro = ErroRapido(a,
+                mp.K * dp + mc.K * dc + mx.K * dx, mp.P * dp + mc.P * dc + mx.P * dx,
+                mp.C * dp + mc.C * dc + mx.C * dx, mp.G * dp + mc.G * dc + mx.G * dx);
+            if (erro < melhor) { melhor = erro; bp = gp; bc = gc; bx = gx; }
         }
-        else
-        {
-            decimal b1 = c.Por100g.ProteinaG / 100, b2 = c.Por100g.CarboG / 100;
-            var det = a1 * b2 - b1 * a2;
-            if (Math.Abs(det) > 0.0001m)
-            {
-                gp = (resto.ProteinaG * b2 - b1 * resto.CarboG) / det;
-                gc = (a1 * resto.CarboG - a2 * resto.ProteinaG) / det;
-            }
-            else
-            {
-                gp = a1 > 0 ? resto.ProteinaG / a1 : p.GramasMin;
-                gc = b2 > 0 ? (resto.CarboG - a2 * gp) / b2 : c.GramasMin;
-            }
 
-            // a proteína manda: com o carbo no limite, refaz a proteína com o carbo real (e vice-versa)
-            var gcLimite = Math.Clamp(gc, c.GramasMin, c.GramasMax);
-            if (gcLimite != gc && a1 > 0) gp = (resto.ProteinaG - b1 * gcLimite) / a1;
-            gc = gcLimite;
-            var gpLimite = Math.Clamp(gp, p.GramasMin, p.GramasMax);
-            if (gpLimite != gp && b2 > 0) gc = Math.Clamp((resto.CarboG - a2 * gpLimite) / b2, c.GramasMin, c.GramasMax);
-            gc = Arredondar(gc);
-        }
-        gp = Arredondar(Math.Clamp(gp, p.GramasMin, p.GramasMax));
-
-        var itens = new List<ItemCardapio> { new(p.AlimentoId, p.Nome, gp, p.Por100g.Vezes(gp / 100m)) };
-        if (c is not null) itens.Add(new(c.AlimentoId, c.Nome, gc, c.Por100g.Vezes(gc / 100m)));
-        if (x is not null) itens.Add(new(x.AlimentoId, x.Nome, gx, macX));
+        var itens = new List<ItemCardapio> { new(p.AlimentoId, p.Nome, bp, p.Por100g.Vezes(bp / 100m)) };
+        if (c is not null) itens.Add(new(c.AlimentoId, c.Nome, bc, c.Por100g.Vezes(bc / 100m)));
+        if (x is not null) itens.Add(new(x.AlimentoId, x.Nome, bx, x.Por100g.Vezes(bx / 100m)));
         var total = Macros.Somar(itens.Select(i => i.Macros));
         return new OpcaoCardapio(itens, total, Erro(alvo, total));
     }
 
-    /// <summary>Erro relativo ponderado: kcal e proteína pesam mais; estourar kcal pesa mais que faltar.</summary>
-    public static decimal Erro(Macros alvo, Macros total)
+    private static decimal[] Faixa(CandidatoCardapio a)
     {
-        decimal Rel(decimal a, decimal t, decimal piso) => Math.Abs(t - a) / Math.Max(a, piso);
-        var kcal = Rel(alvo.Kcal, total.Kcal, 100) * (total.Kcal > alvo.Kcal ? 2.5m : 1.5m);
-        var prot = Rel(alvo.ProteinaG, total.ProteinaG, 10) * 1.5m;
-        var carb = Rel(alvo.CarboG, total.CarboG, 10) * 0.75m;
-        var gord = Rel(alvo.GorduraG, total.GorduraG, 5) * 0.5m;
-        return Math.Round(kcal + prot + carb + gord, 4);
+        var min = Arredondar(a.GramasMin);
+        var max = Math.Max(min, Arredondar(a.GramasMax));
+        var lista = new List<decimal>();
+        for (var g = min; g <= max; g += 5) lista.Add(g);
+        return [.. lista];
     }
+
+    private static double ErroRapido((double K, double P, double C, double G) a, double k, double p, double c, double g)
+    {
+        static double Rel(double alvo, double t, double piso) => Math.Abs(t - alvo) / Math.Max(alvo, piso);
+        // pisos: com alvo pequeno (ex.: 6 g de gordura no fim do dia) poucos gramas a mais não podem valer
+        // mais que a proteína que falta
+        return Rel(a.K, k, 100) * (k > a.K ? PesoKcalAcima : PesoKcalAbaixo) + Rel(a.P, p, 10) * PesoProteina
+             + Rel(a.C, c, 20) * PesoCarbo + Rel(a.G, g, 15) * PesoGordura;
+    }
+
+    private const double PesoKcalAcima = 2.5, PesoKcalAbaixo = 1.5, PesoProteina = 1.5, PesoCarbo = 1.0, PesoGordura = 1.0;
+
+    /// <summary>Erro relativo ponderado dos quatro macros: kcal e proteína pesam mais; estourar kcal pesa mais que faltar.</summary>
+    public static decimal Erro(Macros alvo, Macros total) =>
+        Math.Round((decimal)ErroRapido(((double)alvo.Kcal, (double)alvo.ProteinaG, (double)alvo.CarboG, (double)alvo.GorduraG),
+            (double)total.Kcal, (double)total.ProteinaG, (double)total.CarboG, (double)total.GorduraG), 4);
 
     private static decimal Arredondar(decimal g) => Math.Max(5, Math.Round(g / 5m, MidpointRounding.AwayFromZero) * 5m);
 }
